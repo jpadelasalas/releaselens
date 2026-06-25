@@ -1,4 +1,5 @@
 import { createBrowserRouter, Outlet } from 'react-router-dom'
+import { DemoLayout } from './layouts/DemoLayout'
 import { AppProviders } from './providers/AppProviders'
 import { SignInPage } from '../pages/auth/SignInPage'
 import { DemoDashboardPage } from '../pages/dashboard/DemoDashboardPage'
@@ -17,8 +18,14 @@ export const router = createBrowserRouter([
         element: <LandingPage />,
       },
       {
-        path: '/demo/dashboard',
-        element: <DemoDashboardPage />,
+        path: '/demo',
+        element: <DemoLayout />,
+        children: [
+          {
+            path: 'dashboard',
+            element: <DemoDashboardPage />,
+          },
+        ],
       },
       {
         path: '/sign-in',

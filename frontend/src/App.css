@@ -4,6 +4,35 @@
   min-height: 100svh;
 }
 
+.demo-banner {
+  align-items: center;
+  background: var(--color-primary-soft);
+  border-bottom: 1px solid var(--color-border-strong);
+  color: var(--color-primary-strong);
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  padding: 10px 24px;
+  text-align: center;
+}
+
+.demo-banner strong {
+  color: var(--color-heading);
+}
+
+.demo-route-shell {
+  background: var(--color-dashboard-page);
+  display: flex;
+  flex-direction: column;
+  min-height: 100svh;
+}
+
+.demo-route-shell > .dashboard-shell,
+.demo-route-shell > .centered-page {
+  flex: 1;
+  min-height: 0;
+}
+
 .landing-shell {
   background:
     radial-gradient(circle at top right, var(--color-primary-glow), transparent 34rem),
@@ -559,5 +588,12 @@
     align-items: flex-start;
     flex-direction: column;
     gap: 12px;
+  }
+
+  .demo-banner {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 2px;
+    text-align: left;
   }
 }
