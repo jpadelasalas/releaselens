@@ -1,11 +1,17 @@
 import { Link } from 'react-router-dom'
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import { ThemeToggle } from '../../components/theme/ThemeToggle'
+import {
+  type AnalyticsAttentionRecord,
+} from '../../features/analytics/analyticsApi'
+import { useDashboardAnalytics } from '../../features/analytics/useDashboardAnalytics'
 import { DashboardNav } from './components/DashboardNav'
 import { MetricCard } from './components/MetricCard'
 
 export function DemoDashboardPage() {
   const { scope } = useScopeContext()
+  const organizationId = scope.kind === 'demo' ? scope.organization.id : null
+  const dashboardQuery = useDashboardAnalytics(organizationId)
 
   if (scope.kind !== 'demo') {
     return (
@@ -23,6 +29,20 @@ export function DemoDashboardPage() {
     )
   }
 
+  const analytics = dashboardQuery.data
+  const metrics = analytics?.summary.metrics
+  const largePrBucket = analytics?.distributions.buckets.pr_size.find(
+    (bucket) => bucket.key === 'large',
+  )
+  const chartBars = analytics
+    ? toChartBars(analytics.trends.series.opened_vs_merged_by_week)
+    : []
+  const attentionRecords = analytics?.attention.records.slice(0, 5) ?? []
+  const freshnessLabel = analytics?.summary.demo_freshness_at
+    ? `Fresh ${formatDateTime(analytics.summary.demo_freshness_at)}`
+    : 'Freshness pending'
+  const repositoryCount = analytics?.summary.selected_repository_count ?? 0
+
   return (
     <main className="dashboard-shell">
       <DashboardNav />
@@ -39,67 +59,172 @@ export function DemoDashboardPage() {
           </div>
           <div className="dashboard-header-actions">
             <ThemeToggle />
+            {dashboardQuery.isSuccess && (
+              <span className="freshness">{freshnessLabel}</span>
+            )}
             <span className="demo-badge">Demo read-only</span>
           </div>
         </header>
 
-        <section className="metrics-grid" aria-label="Dashboard metrics">
-          <MetricCard
-            label="Waiting for review"
-            value="18"
-            detail="Open, non-draft PRs without a qualifying human review."
-          />
-          <MetricCard
-            label="Median first review"
-            value="9.4h"
-            detail="Submitted human review excluding self, bot, pending, and dismissed reviews."
-          />
-          <MetricCard
-            label="Median merge time"
-            value="34h"
-            detail="Merged pull requests in the seeded 16-week demo window."
-          />
-          <MetricCard
-            label="Large PRs"
-            value="27"
-            detail="Pull requests above the configured change-size threshold."
-          />
-        </section>
+        {dashboardQuery.isError ? (
+          <section className="retry-panel dashboard-error" role="alert">
+            <strong>Dashboard analytics are unavailable.</strong>
+            <span>Free-tier services may still be waking up. Retry in a moment.</span>
+            <button type="button" onClick={() => void dashboardQuery.refetch()}>
+              Retry Dashboard
+            </button>
+          </section>
+        ) : (
+          <>
+            <section className="dashboard-meta" aria-label="Dashboard freshness">
+              <span>{repositoryCount || '...'} repositories selected</span>
+              <span>{dashboardQuery.isSuccess ? freshnessLabel : 'Loading analytics...'}</span>
+            </section>
 
-        <section className="dashboard-panels">
-          <article className="flow-panel">
-            <div>
-              <h2>Review flow trend</h2>
-              <p>Weekly pull-request volume and delayed-review pressure.</p>
-            </div>
-            <div className="large-chart" aria-label="Synthetic review flow chart">
-              {[42, 55, 48, 66, 74, 61, 83, 72, 88, 79, 93, 86].map(
-                (height, index) => (
-                  <span key={index} style={{ height: `${height}%` }} />
-                ),
-              )}
-            </div>
-          </article>
+            <section className="metrics-grid" aria-label="Dashboard metrics">
+              <MetricCard
+                label="Waiting for review"
+                value={
+                  metrics
+                    ? String(metrics.waiting_for_first_review)
+                    : '...'
+                }
+                detail="Open, non-draft PRs without a qualifying human review."
+              />
+              <MetricCard
+                label="Median first review"
+                value={
+                  metrics
+                    ? formatHours(metrics.median_first_review_hours)
+                    : '...'
+                }
+                detail={
+                  metrics
+                    ? `${metrics.median_first_review_sample_size} qualifying reviewed PRs.`
+                    : 'Submitted human review excluding self, bot, pending, and dismissed reviews.'
+                }
+              />
+              <MetricCard
+                label="Median merge time"
+                value={
+                  metrics ? formatHours(metrics.median_merge_hours) : '...'
+                }
+                detail={
+                  metrics
+                    ? `${metrics.median_merge_sample_size} merged PRs in the active filters.`
+                    : 'Merged pull requests in the seeded demo window.'
+                }
+              />
+              <MetricCard
+                label="Large PRs"
+                value={largePrBucket ? String(largePrBucket.count) : '...'}
+                detail="Pull requests above 500 changed lines."
+              />
+            </section>
 
-          <article className="attention-panel">
-            <h2>Attention list</h2>
-            <ul>
-              <li>
-                <strong>customer-portal #1005</strong>
-                <span>Waiting 8 days for first review</span>
-              </li>
-              <li>
-                <strong>billing-api #1010</strong>
-                <span>Bot-only review does not qualify</span>
-              </li>
-              <li>
-                <strong>mobile-shell #1009</strong>
-                <span>Self-review excluded from first-review metric</span>
-              </li>
-            </ul>
-          </article>
-        </section>
+            <section className="dashboard-panels">
+              <article className="flow-panel">
+                <div>
+                  <h2>Opened versus merged</h2>
+                  <p>Weekly pull-request volume from the analytics API.</p>
+                </div>
+                <div className="large-chart" aria-label="Opened versus merged chart">
+                  {(chartBars.length > 0 ? chartBars : [18, 18, 18, 18]).map(
+                    (height, index) => (
+                      <span key={index} style={{ height: `${height}%` }} />
+                    ),
+                  )}
+                </div>
+              </article>
+
+              <article className="attention-panel">
+                <h2>Attention list</h2>
+                {dashboardQuery.isLoading && (
+                  <p>Loading attention records...</p>
+                )}
+                {dashboardQuery.isSuccess &&
+                  attentionRecords.length === 0 && (
+                    <p>No pull requests match the active attention rules.</p>
+                  )}
+                {attentionRecords.length > 0 && (
+                  <ul>
+                    {attentionRecords.map((record) => (
+                      <AttentionItem key={record.pull_request_id} record={record} />
+                    ))}
+                  </ul>
+                )}
+              </article>
+            </section>
+          </>
+        )}
       </section>
     </main>
   )
+}
+
+function AttentionItem({ record }: { record: AnalyticsAttentionRecord }) {
+  return (
+    <li>
+      <strong>
+        {record.repository} #{record.number}
+      </strong>
+      <span>{formatAttentionReasons(record.reasons)}</span>
+      <span>
+        {formatAge(record.age_hours)} old - {record.change_size} changed lines
+      </span>
+    </li>
+  )
+}
+
+function formatHours(hours: number | null): string {
+  if (hours === null) {
+    return 'N/A'
+  }
+
+  if (hours < 24) {
+    return `${round(hours)}h`
+  }
+
+  return `${round(hours / 24)}d`
+}
+
+function formatAge(hours: number): string {
+  return formatHours(hours)
+}
+
+function formatDateTime(value: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(value))
+}
+
+function formatAttentionReasons(reasons: string[]): string {
+  return reasons.map(formatReason).join(', ')
+}
+
+function formatReason(reason: string): string {
+  return reason
+    .toLowerCase()
+    .split('_')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(' ')
+}
+
+function toChartBars(
+  series: Array<{ opened: number; merged: number }>,
+): number[] {
+  const visibleSeries = series.slice(-12)
+  const maxValue = Math.max(
+    1,
+    ...visibleSeries.map((point) => Math.max(point.opened, point.merged)),
+  )
+
+  return visibleSeries.map((point) =>
+    Math.max(10, Math.round((Math.max(point.opened, point.merged) / maxValue) * 100)),
+  )
+}
+
+function round(value: number): string {
+  return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }

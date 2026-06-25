@@ -490,6 +490,27 @@
   font-size: clamp(34px, 4vw, 52px);
 }
 
+.dashboard-meta {
+  color: var(--color-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 13px;
+  font-weight: 800;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.dashboard-meta span {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  padding: 7px 10px;
+}
+
+.dashboard-error {
+  margin-top: 12px;
+}
+
 .metrics-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
