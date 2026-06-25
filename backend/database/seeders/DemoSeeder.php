@@ -112,7 +112,7 @@ class DemoSeeder extends Seeder
     private function deleteExistingDemoOrganization(): void
     {
         $organizationId = DB::table('organizations')
-            ->where('slug', self::DEMO_ORGANIZATION_SLUG)
+            ->where('slug', $this->demoOrganizationSlug())
             ->value('id');
 
         if ($organizationId === null) {
@@ -212,12 +212,20 @@ class DemoSeeder extends Seeder
     {
         return $this->insertGetId('organizations', [
             'name' => 'Northstar Engineering',
-            'slug' => self::DEMO_ORGANIZATION_SLUG,
+            'slug' => $this->demoOrganizationSlug(),
             'timezone' => 'Asia/Manila',
             'is_demo' => true,
             'created_at' => $this->anchor,
             'updated_at' => $this->anchor,
         ]);
+    }
+
+    private function demoOrganizationSlug(): string
+    {
+        return (string) config(
+            'releaselens.demo.organization_slug',
+            self::DEMO_ORGANIZATION_SLUG
+        );
     }
 
     /**
