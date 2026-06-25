@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Modules\Shared\Http\Responses\ApiResponse;
 use Closure;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -9,6 +10,8 @@ use Symfony\Component\HttpFoundation\Response;
 
 class EnsureDemoSessionIsReadOnly
 {
+    use ApiResponse;
+
     /**
      * @param  Closure(Request): Response  $next
      */
@@ -40,11 +43,10 @@ class EnsureDemoSessionIsReadOnly
 
     private function readOnlyResponse(): JsonResponse
     {
-        return response()->json([
-            'error' => [
-                'code' => 'DEMO_READ_ONLY',
-                'message' => 'The demo workspace is read-only.',
-            ],
-        ], 403);
+        return $this->errorResponse(
+            code: 'DEMO_READ_ONLY',
+            message: 'The demo workspace is read-only.',
+            status: 403,
+        );
     }
 }

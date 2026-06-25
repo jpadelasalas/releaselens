@@ -2,6 +2,8 @@
 
 namespace App\Providers;
 
+use App\Modules\Analytics\Contracts\OrganizationAnalyticsRepositoryInterface;
+use App\Modules\Analytics\Repositories\OrganizationAnalyticsRepository;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -14,7 +16,10 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        //
+        $this->app->bind(
+            OrganizationAnalyticsRepositoryInterface::class,
+            OrganizationAnalyticsRepository::class,
+        );
     }
 
     /**

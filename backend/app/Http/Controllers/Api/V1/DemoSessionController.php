@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Shared\Http\Responses\ApiResponse;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -11,6 +12,8 @@ use Illuminate\Support\Str;
 
 class DemoSessionController extends Controller
 {
+    use ApiResponse;
+
     public function __invoke(Request $request): JsonResponse
     {
         $demoOrganization = DB::table('organizations')
@@ -20,12 +23,11 @@ class DemoSessionController extends Controller
             ->first();
 
         if ($demoOrganization === null) {
-            return response()->json([
-                'error' => [
-                    'code' => 'DEMO_NOT_READY',
-                    'message' => 'The demo workspace has not been seeded yet.',
-                ],
-            ], 503);
+            return $this->errorResponse(
+                code: 'DEMO_NOT_READY',
+                message: 'The demo workspace has not been seeded yet.',
+                status: 503,
+            );
         }
 
         $session = $request->session();
@@ -47,25 +49,23 @@ class DemoSessionController extends Controller
             $session->put('releaselens.context', $context);
         }
 
-        return response()->json([
-            'data' => [
-                'session' => [
-                    'type' => 'demo',
-                    'id' => $context['session_id'],
-                    'read_only' => true,
-                ],
-                'organization' => [
-                    'id' => (int) $demoOrganization->id,
-                    'name' => $demoOrganization->name,
-                    'slug' => $demoOrganization->slug,
-                    'timezone' => $demoOrganization->timezone,
-                    'is_demo' => true,
-                ],
-                'capabilities' => [
-                    'can_read_analytics' => true,
-                    'can_mutate_demo' => false,
-                    'can_connect_github' => false,
-                ],
+        return $this->successResponse([
+            'session' => [
+                'type' => 'demo',
+                'id' => $context['session_id'],
+                'read_only' => true,
+            ],
+            'organization' => [
+                'id' => (int) $demoOrganization->id,
+                'name' => $demoOrganization->name,
+                'slug' => $demoOrganization->slug,
+                'timezone' => $demoOrganization->timezone,
+                'is_demo' => true,
+            ],
+            'capabilities' => [
+                'can_read_analytics' => true,
+                'can_mutate_demo' => false,
+                'can_connect_github' => false,
             ],
         ]);
     }
