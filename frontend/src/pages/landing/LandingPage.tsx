@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useScopeContext } from '../../app/scope/useScopeContext'
+import { BrandLink } from '../../components/navigation/BrandLink'
 import { ThemeToggle } from '../../components/theme/ThemeToggle'
 import { createDemoSession } from '../../features/demo-session/demoSessionApi'
 
@@ -27,10 +28,7 @@ export function LandingPage() {
   return (
     <main className="landing-shell">
       <nav className="topbar" aria-label="Primary navigation">
-        <Link className="brand" to="/" aria-label="ReleaseLens home">
-          <span className="brand-mark">R</span>
-          <span>ReleaseLens</span>
-        </Link>
+        <BrandLink />
         <div className="topbar-actions">
           <a href="#responsible-use">Responsible Use</a>
           <ThemeToggle />

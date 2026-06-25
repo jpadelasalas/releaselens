@@ -1,6 +1,8 @@
 import { Link } from 'react-router-dom'
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import { ThemeToggle } from '../../components/theme/ThemeToggle'
+import { DashboardNav } from './components/DashboardNav'
+import { MetricCard } from './components/MetricCard'
 
 export function DemoDashboardPage() {
   const { scope } = useScopeContext()
@@ -23,17 +25,7 @@ export function DemoDashboardPage() {
 
   return (
     <main className="dashboard-shell">
-      <aside className="dashboard-nav">
-        <Link className="brand" to="/">
-          <span className="brand-mark">R</span>
-          <span>ReleaseLens</span>
-        </Link>
-        <span className="nav-current">Dashboard</span>
-        <span>Pull Requests</span>
-        <span>Repositories</span>
-        <span>Sync Runs</span>
-        <span>Metric Glossary</span>
-      </aside>
+      <DashboardNav />
 
       <section className="dashboard-main">
         <header className="dashboard-header">
@@ -109,23 +101,5 @@ export function DemoDashboardPage() {
         </section>
       </section>
     </main>
-  )
-}
-
-function MetricCard({
-  label,
-  value,
-  detail,
-}: {
-  label: string
-  value: string
-  detail: string
-}) {
-  return (
-    <article className="metric-card">
-      <span>{label}</span>
-      <strong>{value}</strong>
-      <p>{detail}</p>
-    </article>
   )
 }

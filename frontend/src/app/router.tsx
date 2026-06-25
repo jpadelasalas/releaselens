@@ -1,6 +1,5 @@
 import { createBrowserRouter, Outlet } from 'react-router-dom'
-import { ScopeProvider } from './scope/ScopeContext'
-import { ThemeProvider } from './theme/ThemeProvider'
+import { AppProviders } from './providers/AppProviders'
 import { SignInPage } from '../pages/auth/SignInPage'
 import { DemoDashboardPage } from '../pages/dashboard/DemoDashboardPage'
 import { LandingPage } from '../pages/landing/LandingPage'
@@ -8,11 +7,9 @@ import { LandingPage } from '../pages/landing/LandingPage'
 export const router = createBrowserRouter([
   {
     element: (
-      <ThemeProvider>
-        <ScopeProvider>
-          <Outlet />
-        </ScopeProvider>
-      </ThemeProvider>
+      <AppProviders>
+        <Outlet />
+      </AppProviders>
     ),
     children: [
       {
