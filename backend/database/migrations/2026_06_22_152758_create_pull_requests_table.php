@@ -13,14 +13,14 @@ return new class extends Migration
     {
         Schema::create('pull_requests', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('repository_id')->constrained()->cascadeOnDelete();
+            $table->unsignedBigInteger('repository_id');
             $table->unsignedBigInteger('github_pull_request_id')->unique();
             $table->unsignedInteger('number');
             $table->string('title');
             $table->string('html_url', 2048)->nullable();
             $table->string('state', 32)->index();
             $table->boolean('is_draft')->default(false)->index();
-            $table->foreignId('author_github_user_id')->nullable()->constrained('github_users')->nullOnDelete();
+            $table->unsignedBigInteger('author_github_user_id')->nullable();
             $table->string('base_ref');
             $table->string('head_ref');
             $table->unsignedInteger('additions')->default(0);
