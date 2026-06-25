@@ -12,7 +12,11 @@ export function ThemeToggle() {
       aria-pressed={isDark}
       aria-label={`Switch to ${isDark ? 'light' : 'dark'} mode`}
     >
-      <span aria-hidden="true">{isDark ? 'Light' : 'Dark'}</span>
+      <span className="theme-toggle__track" aria-hidden="true">
+        <span className="theme-toggle__icon theme-toggle__icon--sun" />
+        <span className="theme-toggle__icon theme-toggle__icon--moon" />
+        <span className="theme-toggle__thumb" />
+      </span>
     </button>
   )
 }

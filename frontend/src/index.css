@@ -86,6 +86,34 @@ body {
   margin: 0;
 }
 
+body,
+button,
+a,
+.landing-shell,
+.dashboard-shell,
+.centered-page,
+.preview-frame,
+.preview-app,
+.preview-sidebar,
+.preview-cards div,
+.metric-card,
+.flow-panel,
+.attention-panel,
+.trust-section > div,
+.value-grid article,
+.dashboard-nav,
+.dashboard-nav span:not(.brand-mark),
+.retry-panel,
+.secondary-link,
+.primary-action,
+.secondary-action {
+  transition:
+    background-color 220ms ease,
+    border-color 220ms ease,
+    box-shadow 220ms ease,
+    color 220ms ease;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -110,4 +138,13 @@ a:focus-visible {
 img,
 svg {
   max-width: 100%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    transition-delay: 0ms !important;
+  }
 }

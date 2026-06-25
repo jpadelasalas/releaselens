@@ -26,6 +26,14 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('audit_logs');
+        Schema::dropIfExists('sync_run_errors');
+        Schema::dropIfExists('sync_runs');
+        Schema::dropIfExists('pull_request_reviews');
+        Schema::dropIfExists('pull_requests');
+        Schema::dropIfExists('repositories');
+        Schema::dropIfExists('github_installations');
+        Schema::dropIfExists('organization_members');
         Schema::dropIfExists('organizations');
     }
 };

@@ -41,6 +41,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('sync_run_errors');
         Schema::dropIfExists('sync_runs');
     }
 };

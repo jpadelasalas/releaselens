@@ -34,6 +34,7 @@ return new class extends Migration
      */
     public function down(): void
     {
+        Schema::dropIfExists('repositories');
         Schema::dropIfExists('github_installations');
     }
 };
