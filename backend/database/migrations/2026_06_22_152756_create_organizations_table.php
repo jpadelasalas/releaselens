@@ -13,6 +13,10 @@ return new class extends Migration
     {
         Schema::create('organizations', function (Blueprint $table) {
             $table->id();
+            $table->string('name');
+            $table->string('slug')->unique();
+            $table->string('timezone', 64)->default('UTC');
+            $table->boolean('is_demo')->default(false)->index();
             $table->timestamps();
         });
     }

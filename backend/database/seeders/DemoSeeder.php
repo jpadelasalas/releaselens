@@ -1,0 +1,1056 @@
+<?php
+
+namespace Database\Seeders;
+
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
+use RuntimeException;
+
+class DemoSeeder extends Seeder
+{
+    private const DEMO_ORGANIZATION_SLUG = 'northstar-engineering';
+
+    private const PULL_REQUEST_COUNT = 192;
+
+    /**
+     * Used to generate unique synthetic GitHub review IDs.
+     */
+    private int $reviewSequence = 9_400_000_000;
+
+    private CarbonImmutable $anchor;
+
+    private int $randomSeed;
+
+    /**
+     * Cached table column lists.
+     *
+     * @var array<string, array<int, string>>
+     */
+    private array $columnCache = [];
+
+    public function run(): void
+    {
+        $this->assertRequiredTables();
+
+        $this->anchor = CarbonImmutable::parse(
+            (string) config(
+                'releaselens.demo.anchor_date',
+                '2026-06-19T12:00:00Z'
+            )
+        )->utc();
+
+        $this->randomSeed = (int) config(
+            'releaselens.demo.random_seed',
+            1001
+        );
+
+        DB::transaction(function (): void {
+            $this->deleteExistingDemoOrganization();
+
+            $organizationId = $this->seedOrganization();
+
+            $this->seedDemoOwnerMembership($organizationId);
+
+            $actors = $this->seedGitHubUsers();
+
+            $repositories = $this->seedRepositories($organizationId);
+
+            $result = $this->seedPullRequests(
+                repositories: $repositories,
+                actors: $actors,
+            );
+
+            $this->seedSyncRuns($repositories);
+
+            $this->command?->newLine();
+            $this->command?->info('ReleaseLens demo data created.');
+            $this->command?->line(
+                'Organization: Northstar Engineering'
+            );
+            $this->command?->line(
+                'Repositories: ' . count($repositories)
+            );
+            $this->command?->line(
+                'Pull requests: ' . $result['pull_requests']
+            );
+            $this->command?->line(
+                'Reviews: ' . $result['reviews']
+            );
+            $this->command?->line(
+                'Anchor: ' . $this->anchor->toIso8601String()
+            );
+        });
+    }
+
+    private function assertRequiredTables(): void
+    {
+        $requiredTables = [
+            'organizations',
+            'repositories',
+            'github_users',
+            'pull_requests',
+            'pull_request_reviews',
+        ];
+
+        foreach ($requiredTables as $table) {
+            if (! Schema::hasTable($table)) {
+                throw new RuntimeException(
+                    "Required ReleaseLens table [{$table}] does not exist."
+                );
+            }
+        }
+    }
+
+    /**
+     * Delete only the existing synthetic demo tenant.
+     *
+     * This does not delete connected organizations or their data.
+     */
+    private function deleteExistingDemoOrganization(): void
+    {
+        $organizationId = DB::table('organizations')
+            ->where('slug', self::DEMO_ORGANIZATION_SLUG)
+            ->value('id');
+
+        if ($organizationId === null) {
+            return;
+        }
+
+        $repositoryIds = Schema::hasTable('repositories')
+            ? DB::table('repositories')
+            ->where('organization_id', $organizationId)
+            ->pluck('id')
+            : collect();
+
+        $pullRequestIds = collect();
+
+        if (
+            Schema::hasTable('pull_requests') &&
+            $repositoryIds->isNotEmpty()
+        ) {
+            $pullRequestIds = DB::table('pull_requests')
+                ->whereIn('repository_id', $repositoryIds)
+                ->pluck('id');
+        }
+
+        if (
+            Schema::hasTable('pull_request_reviews') &&
+            $pullRequestIds->isNotEmpty()
+        ) {
+            DB::table('pull_request_reviews')
+                ->whereIn('pull_request_id', $pullRequestIds)
+                ->delete();
+        }
+
+        if (
+            Schema::hasTable('pull_requests') &&
+            $repositoryIds->isNotEmpty()
+        ) {
+            DB::table('pull_requests')
+                ->whereIn('repository_id', $repositoryIds)
+                ->delete();
+        }
+
+        if (
+            Schema::hasTable('sync_runs') &&
+            $repositoryIds->isNotEmpty()
+        ) {
+            $syncRunIds = DB::table('sync_runs')
+                ->whereIn('repository_id', $repositoryIds)
+                ->pluck('id');
+
+            if (
+                Schema::hasTable('sync_run_errors') &&
+                $syncRunIds->isNotEmpty()
+            ) {
+                DB::table('sync_run_errors')
+                    ->whereIn('sync_run_id', $syncRunIds)
+                    ->delete();
+            }
+
+            DB::table('sync_runs')
+                ->whereIn('repository_id', $repositoryIds)
+                ->delete();
+        }
+
+        if (
+            Schema::hasTable('repositories') &&
+            $repositoryIds->isNotEmpty()
+        ) {
+            DB::table('repositories')
+                ->whereIn('id', $repositoryIds)
+                ->delete();
+        }
+
+        if (Schema::hasTable('organization_members')) {
+            DB::table('organization_members')
+                ->where('organization_id', $organizationId)
+                ->delete();
+        }
+
+        if (Schema::hasTable('github_installations')) {
+            DB::table('github_installations')
+                ->where('organization_id', $organizationId)
+                ->delete();
+        }
+
+        if (Schema::hasTable('audit_logs')) {
+            DB::table('audit_logs')
+                ->where('organization_id', $organizationId)
+                ->delete();
+        }
+
+        DB::table('organizations')
+            ->where('id', $organizationId)
+            ->delete();
+    }
+
+    private function seedOrganization(): int
+    {
+        return $this->insertGetId('organizations', [
+            'name' => 'Northstar Engineering',
+            'slug' => self::DEMO_ORGANIZATION_SLUG,
+            'timezone' => 'Asia/Manila',
+            'is_demo' => true,
+            'created_at' => $this->anchor,
+            'updated_at' => $this->anchor,
+        ]);
+    }
+
+    /**
+     * The demo session does not authenticate as this user.
+     *
+     * This disabled account exists only when the schema requires an
+     * organization member/owner relationship.
+     */
+    private function seedDemoOwnerMembership(
+        int $organizationId
+    ): void {
+        if (
+            ! Schema::hasTable('users') ||
+            ! Schema::hasTable('organization_members')
+        ) {
+            return;
+        }
+
+        $email = 'demo-owner@releaselens.invalid';
+
+        $userPayload = $this->filterPayload('users', [
+            'name' => 'ReleaseLens Demo Owner',
+            'email' => $email,
+            'normalized_email' => mb_strtolower($email),
+            'email_verified_at' => $this->anchor,
+            'password' => Hash::make('disabled-demo-account'),
+            'timezone' => 'Asia/Manila',
+            'disabled_at' => $this->anchor,
+            'created_at' => $this->anchor,
+            'updated_at' => $this->anchor,
+        ]);
+
+        DB::table('users')->updateOrInsert(
+            ['email' => $email],
+            $userPayload
+        );
+
+        $userId = DB::table('users')
+            ->where('email', $email)
+            ->value('id');
+
+        if ($userId === null) {
+            throw new RuntimeException(
+                'Unable to create the disabled demo owner.'
+            );
+        }
+
+        DB::table('organization_members')->insert(
+            $this->filterPayload('organization_members', [
+                'organization_id' => $organizationId,
+                'user_id' => $userId,
+                'role' => 'owner',
+                'joined_at' => $this->anchor,
+                'created_at' => $this->anchor,
+                'updated_at' => $this->anchor,
+            ])
+        );
+    }
+
+    /**
+     * @return array{
+     *     developers: array<int, array<string, mixed>>,
+     *     bots: array<int, array<string, mixed>>
+     * }
+     */
+    private function seedGitHubUsers(): array
+    {
+        $definitions = [
+            [
+                'github_user_id' => 9_100_000_001,
+                'login' => 'ava-stone',
+                'name' => 'Ava Stone',
+                'type' => 'User',
+                'is_bot' => false,
+            ],
+            [
+                'github_user_id' => 9_100_000_002,
+                'login' => 'liam-chen',
+                'name' => 'Liam Chen',
+                'type' => 'User',
+                'is_bot' => false,
+            ],
+            [
+                'github_user_id' => 9_100_000_003,
+                'login' => 'maya-rodriguez',
+                'name' => 'Maya Rodriguez',
+                'type' => 'User',
+                'is_bot' => false,
+            ],
+            [
+                'github_user_id' => 9_100_000_004,
+                'login' => 'noah-williams',
+                'name' => 'Noah Williams',
+                'type' => 'User',
+                'is_bot' => false,
+            ],
+            [
+                'github_user_id' => 9_100_000_005,
+                'login' => 'sofia-reyes',
+                'name' => 'Sofia Reyes',
+                'type' => 'User',
+                'is_bot' => false,
+            ],
+            [
+                'github_user_id' => 9_100_000_006,
+                'login' => 'ethan-brooks',
+                'name' => 'Ethan Brooks',
+                'type' => 'User',
+                'is_bot' => false,
+            ],
+            [
+                'github_user_id' => 9_100_000_007,
+                'login' => 'isla-patel',
+                'name' => 'Isla Patel',
+                'type' => 'User',
+                'is_bot' => false,
+            ],
+            [
+                'github_user_id' => 9_100_000_008,
+                'login' => 'lucas-tan',
+                'name' => 'Lucas Tan',
+                'type' => 'User',
+                'is_bot' => false,
+            ],
+            [
+                'github_user_id' => 9_100_000_101,
+                'login' => 'dependabot[bot]',
+                'name' => 'Dependabot',
+                'type' => 'Bot',
+                'is_bot' => true,
+            ],
+            [
+                'github_user_id' => 9_100_000_102,
+                'login' => 'northstar-ci[bot]',
+                'name' => 'Northstar CI',
+                'type' => 'Bot',
+                'is_bot' => true,
+            ],
+        ];
+
+        $developers = [];
+        $bots = [];
+
+        foreach ($definitions as $definition) {
+            $payload = $this->filterPayload('github_users', [
+                'github_user_id' => $definition['github_user_id'],
+                'login' => $definition['login'],
+                'name' => $definition['name'],
+                'display_name' => $definition['name'],
+                'type' => $definition['type'],
+                'account_type' => $definition['type'],
+                'is_bot' => $definition['is_bot'],
+                'avatar_url' => null,
+                'created_at' => $this->anchor,
+                'updated_at' => $this->anchor,
+            ]);
+
+            DB::table('github_users')->updateOrInsert(
+                [
+                    'github_user_id' =>
+                    $definition['github_user_id'],
+                ],
+                $payload
+            );
+
+            $localId = DB::table('github_users')
+                ->where(
+                    'github_user_id',
+                    $definition['github_user_id']
+                )
+                ->value('id');
+
+            if ($localId === null) {
+                throw new RuntimeException(
+                    "Unable to seed GitHub user {$definition['login']}."
+                );
+            }
+
+            $actor = [
+                ...$definition,
+                'id' => (int) $localId,
+            ];
+
+            if ($definition['is_bot']) {
+                $bots[] = $actor;
+            } else {
+                $developers[] = $actor;
+            }
+        }
+
+        return [
+            'developers' => $developers,
+            'bots' => $bots,
+        ];
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    private function seedRepositories(
+        int $organizationId
+    ): array {
+        $definitions = [
+            [
+                'github_repository_id' => 9_200_000_001,
+                'name' => 'customer-portal',
+                'description' =>
+                'Customer account and subscription portal.',
+            ],
+            [
+                'github_repository_id' => 9_200_000_002,
+                'name' => 'billing-api',
+                'description' =>
+                'Billing and payment service API.',
+            ],
+            [
+                'github_repository_id' => 9_200_000_003,
+                'name' => 'mobile-shell',
+                'description' =>
+                'Shared mobile application foundation.',
+            ],
+            [
+                'github_repository_id' => 9_200_000_004,
+                'name' => 'developer-tools',
+                'description' =>
+                'Internal developer productivity utilities.',
+            ],
+        ];
+
+        $repositories = [];
+
+        foreach ($definitions as $index => $definition) {
+            $lastSuccessfulSync = $this->anchor
+                ->subMinutes(15 + ($index * 11));
+
+            $repositoryId = $this->insertGetId(
+                'repositories',
+                [
+                    'organization_id' => $organizationId,
+                    'github_installation_id' => null,
+                    'github_repository_id' =>
+                    $definition['github_repository_id'],
+                    'name' => $definition['name'],
+                    'full_name' =>
+                    'northstar-engineering/' .
+                        $definition['name'],
+                    'description' => $definition['description'],
+                    'visibility' => 'public',
+                    'default_branch' => 'main',
+                    'html_url' => null,
+                    'is_archived' => false,
+                    'sync_enabled' => true,
+                    'sync_status' => 'successful',
+                    'last_sync_at' => $lastSuccessfulSync,
+                    'last_successful_sync_at' =>
+                    $lastSuccessfulSync,
+                    'created_at' => $this->anchor->subWeeks(20),
+                    'updated_at' => $lastSuccessfulSync,
+                ]
+            );
+
+            $repositories[] = [
+                ...$definition,
+                'id' => $repositoryId,
+                'last_successful_sync_at' =>
+                $lastSuccessfulSync,
+            ];
+        }
+
+        return $repositories;
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $repositories
+     * @param array{
+     *     developers: array<int, array<string, mixed>>,
+     *     bots: array<int, array<string, mixed>>
+     * } $actors
+     *
+     * @return array{pull_requests: int, reviews: int}
+     */
+    private function seedPullRequests(
+        array $repositories,
+        array $actors
+    ): array {
+        $reviewCount = 0;
+
+        for ($index = 1; $index <= self::PULL_REQUEST_COUNT; $index++) {
+            $repository = $repositories[($index - 1) % count($repositories)];
+
+            $author = $actors['developers'][(($index * 3) + $this->randomSeed)
+                % count($actors['developers'])];
+
+            $scenario = $this->scenarioFor($index);
+
+            $createdAt = $this->anchor->subHours(
+                $scenario['hours_ago']
+            );
+
+            $ageHours = max(
+                1,
+                (int) $createdAt->diffInHours($this->anchor)
+            );
+
+            $isOpen = $scenario['is_open'];
+            $isDraft = $scenario['is_draft'];
+            $isClosedWithoutMerge =
+                $scenario['is_closed_without_merge'];
+
+            $reviewDelayHours = min(
+                $scenario['review_delay_hours'],
+                max(1, $ageHours - 1)
+            );
+
+            $lifecycleDelayHours = min(
+                max(
+                    $reviewDelayHours + 2,
+                    $scenario['lifecycle_delay_hours']
+                ),
+                $ageHours
+            );
+
+            $closedAt = null;
+            $mergedAt = null;
+
+            if (! $isOpen) {
+                $closedAt = $createdAt->addHours(
+                    $lifecycleDelayHours
+                );
+
+                if (! $isClosedWithoutMerge) {
+                    $mergedAt = $closedAt;
+                }
+            }
+
+            $state = $isOpen ? 'open' : 'closed';
+
+            $updatedCandidate = $closedAt
+                ?? $createdAt->addHours(
+                    min(
+                        $ageHours,
+                        6 + (($index * 7) % 72)
+                    )
+                );
+
+            $updatedAtGitHub =
+                $updatedCandidate->greaterThan($this->anchor)
+                ? $this->anchor
+                : $updatedCandidate;
+
+            $changeSize = $scenario['change_size'];
+
+            $additions = (int) floor($changeSize * 0.72);
+            $deletions = $changeSize - $additions;
+
+            $pullRequestId = $this->insertGetId(
+                'pull_requests',
+                [
+                    'repository_id' => $repository['id'],
+                    'github_pull_request_id' =>
+                    9_300_000_000 + $index,
+                    'number' => 1000 + $index,
+                    'title' => $this->pullRequestTitle(
+                        $repository['name'],
+                        $index
+                    ),
+                    'html_url' => null,
+                    'state' => $state,
+                    'is_draft' => $isDraft,
+                    'author_github_user_id' => $author['id'],
+                    'base_ref' => 'main',
+                    'head_ref' =>
+                    'feature/demo-' . str_pad(
+                        (string) $index,
+                        3,
+                        '0',
+                        STR_PAD_LEFT
+                    ),
+                    'additions' => $additions,
+                    'deletions' => $deletions,
+                    'changed_files' =>
+                    max(1, (int) ceil($changeSize / 80)),
+                    'commits_count' =>
+                    1 + (($index * 5) % 14),
+                    'comments_count' => ($index * 3) % 12,
+                    'created_at_github' => $createdAt,
+                    'updated_at_github' => $updatedAtGitHub,
+                    'closed_at' => $closedAt,
+                    'merged_at' => $mergedAt,
+                    'created_at' => $createdAt,
+                    'updated_at' => $updatedAtGitHub,
+                ]
+            );
+
+            $reviewCount += $this->seedReviewsForPullRequest(
+                index: $index,
+                pullRequestId: $pullRequestId,
+                author: $author,
+                actors: $actors,
+                createdAt: $createdAt,
+                reviewDelayHours: $reviewDelayHours,
+                mode: $scenario['review_mode'],
+            );
+        }
+
+        return [
+            'pull_requests' => self::PULL_REQUEST_COUNT,
+            'reviews' => $reviewCount,
+        ];
+    }
+
+    /**
+     * Generate important edge cases first, then deterministic
+     * general records for the rest of the dataset.
+     *
+     * @return array{
+     *     hours_ago: int,
+     *     is_open: bool,
+     *     is_draft: bool,
+     *     is_closed_without_merge: bool,
+     *     review_mode: string,
+     *     review_delay_hours: int,
+     *     lifecycle_delay_hours: int,
+     *     change_size: int
+     * }
+     */
+    private function scenarioFor(int $index): array
+    {
+        $hoursAcrossSixteenWeeks = 16 * 7 * 24;
+
+        $isDraft = $index % 17 === 0;
+        $isOpen = $index % 5 === 0;
+
+        $isClosedWithoutMerge =
+            ! $isOpen && $index % 11 === 0;
+
+        $reviewMode = match (true) {
+            $isDraft => 'none',
+            $index % 29 === 0 => 'bot',
+            $index % 23 === 0 => 'dismissed',
+            $index % 19 === 0 => 'pending',
+            $index % 13 === 0 => 'self',
+            $index % 7 === 0 => 'none',
+            default => 'human',
+        };
+
+        $scenario = [
+            'hours_ago' =>
+            1 + (($index * 53) % $hoursAcrossSixteenWeeks),
+            'is_open' => $isOpen,
+            'is_draft' => $isDraft,
+            'is_closed_without_merge' =>
+            $isClosedWithoutMerge,
+            'review_mode' => $reviewMode,
+            'review_delay_hours' =>
+            1 + (($index * 7) % 72),
+            'lifecycle_delay_hours' =>
+            12 + (($index * 13) % 240),
+            'change_size' =>
+            20 + (($index * 83) % 900),
+        ];
+
+        /*
+         * Explicit fixtures for important UI and metric cases.
+         *
+         * These include age boundaries, size boundaries, drafts,
+         * self-review-only PRs, bot-only PRs and closed-unmerged PRs.
+         */
+        $overrides = [
+            1 => [
+                'hours_ago' => 2,
+                'is_open' => true,
+                'is_draft' => false,
+                'is_closed_without_merge' => false,
+                'review_mode' => 'none',
+                'change_size' => 50,
+            ],
+            2 => [
+                'hours_ago' => 24,
+                'is_open' => true,
+                'is_draft' => false,
+                'is_closed_without_merge' => false,
+                'review_mode' => 'human',
+                'review_delay_hours' => 2,
+                'change_size' => 51,
+            ],
+            3 => [
+                'hours_ago' => 72,
+                'is_open' => true,
+                'is_draft' => false,
+                'is_closed_without_merge' => false,
+                'review_mode' => 'none',
+                'change_size' => 200,
+            ],
+            4 => [
+                'hours_ago' => 168,
+                'is_open' => true,
+                'is_draft' => false,
+                'is_closed_without_merge' => false,
+                'review_mode' => 'human',
+                'review_delay_hours' => 8,
+                'change_size' => 201,
+            ],
+            5 => [
+                'hours_ago' => 192,
+                'is_open' => true,
+                'is_draft' => false,
+                'is_closed_without_merge' => false,
+                'review_mode' => 'none',
+                'change_size' => 500,
+            ],
+            6 => [
+                'hours_ago' => 240,
+                'is_open' => true,
+                'is_draft' => true,
+                'is_closed_without_merge' => false,
+                'review_mode' => 'none',
+                'change_size' => 501,
+            ],
+            7 => [
+                'hours_ago' => 48,
+                'is_open' => false,
+                'is_draft' => false,
+                'is_closed_without_merge' => false,
+                'review_mode' => 'human',
+                'review_delay_hours' => 1,
+                'lifecycle_delay_hours' => 6,
+                'change_size' => 35,
+            ],
+            8 => [
+                'hours_ago' => 96,
+                'is_open' => false,
+                'is_draft' => false,
+                'is_closed_without_merge' => true,
+                'review_mode' => 'human',
+                'review_delay_hours' => 6,
+                'lifecycle_delay_hours' => 20,
+                'change_size' => 120,
+            ],
+            9 => [
+                'hours_ago' => 120,
+                'is_open' => true,
+                'is_draft' => false,
+                'is_closed_without_merge' => false,
+                'review_mode' => 'self',
+                'review_delay_hours' => 3,
+                'change_size' => 310,
+            ],
+            10 => [
+                'hours_ago' => 144,
+                'is_open' => true,
+                'is_draft' => false,
+                'is_closed_without_merge' => false,
+                'review_mode' => 'bot',
+                'review_delay_hours' => 4,
+                'change_size' => 620,
+            ],
+        ];
+
+        return array_replace(
+            $scenario,
+            $overrides[$index] ?? []
+        );
+    }
+
+    /**
+     * @param array<string, mixed> $author
+     * @param array{
+     *     developers: array<int, array<string, mixed>>,
+     *     bots: array<int, array<string, mixed>>
+     * } $actors
+     */
+    private function seedReviewsForPullRequest(
+        int $index,
+        int $pullRequestId,
+        array $author,
+        array $actors,
+        CarbonImmutable $createdAt,
+        int $reviewDelayHours,
+        string $mode
+    ): int {
+        if ($mode === 'none') {
+            return 0;
+        }
+
+        $humanReviewer = $this->differentHumanReviewer(
+            index: $index,
+            authorId: $author['id'],
+            developers: $actors['developers'],
+        );
+
+        $reviewer = match ($mode) {
+            'self' => $author,
+            'bot' => $actors['bots'][$index % count($actors['bots'])],
+            default => $humanReviewer,
+        };
+
+        $submittedAt = $mode === 'pending'
+            ? null
+            : $createdAt->addHours($reviewDelayHours);
+
+        if (
+            $submittedAt !== null &&
+            $submittedAt->greaterThan($this->anchor)
+        ) {
+            $submittedAt = $this->anchor;
+        }
+
+        $state = match ($mode) {
+            'pending' => 'pending',
+            'dismissed' => 'dismissed',
+            'self' => 'approved',
+            'bot' => 'approved',
+            default => $index % 9 === 0
+                ? 'changes_requested'
+                : ($index % 4 === 0 ? 'commented' : 'approved'),
+        };
+
+        $this->insertReview(
+            pullRequestId: $pullRequestId,
+            reviewerId: $reviewer['id'],
+            state: $state,
+            submittedAt: $submittedAt,
+            createdAt: $createdAt,
+        );
+
+        $count = 1;
+
+        /*
+         * Add a follow-up approval after some changes-requested reviews.
+         * The first qualifying review remains the earlier review.
+         */
+        if (
+            $mode === 'human' &&
+            $state === 'changes_requested' &&
+            $submittedAt !== null
+        ) {
+            $followUpAt = $submittedAt->addHours(6);
+
+            if ($followUpAt->lessThanOrEqualTo($this->anchor)) {
+                $this->insertReview(
+                    pullRequestId: $pullRequestId,
+                    reviewerId: $reviewer['id'],
+                    state: 'approved',
+                    submittedAt: $followUpAt,
+                    createdAt: $followUpAt,
+                );
+
+                $count++;
+            }
+        }
+
+        return $count;
+    }
+
+    private function insertReview(
+        int $pullRequestId,
+        int $reviewerId,
+        string $state,
+        ?CarbonImmutable $submittedAt,
+        CarbonImmutable $createdAt
+    ): void {
+        $githubReviewId = ++$this->reviewSequence;
+
+        $this->insertGetId('pull_request_reviews', [
+            'pull_request_id' => $pullRequestId,
+            'github_review_id' => $githubReviewId,
+            'reviewer_github_user_id' => $reviewerId,
+            'state' => $state,
+            'submitted_at' => $submittedAt,
+            'github_updated_at' => $submittedAt,
+            'created_at' => $submittedAt ?? $createdAt,
+            'updated_at' => $submittedAt ?? $createdAt,
+        ]);
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $developers
+     *
+     * @return array<string, mixed>
+     */
+    private function differentHumanReviewer(
+        int $index,
+        int $authorId,
+        array $developers
+    ): array {
+        $startingIndex = (
+            $index +
+            $this->randomSeed
+        ) % count($developers);
+
+        for ($offset = 0; $offset < count($developers); $offset++) {
+            $candidate = $developers[($startingIndex + $offset) % count($developers)];
+
+            if ($candidate['id'] !== $authorId) {
+                return $candidate;
+            }
+        }
+
+        throw new RuntimeException(
+            'Unable to find a non-author reviewer.'
+        );
+    }
+
+    /**
+     * @param array<int, array<string, mixed>> $repositories
+     */
+    private function seedSyncRuns(array $repositories): void
+    {
+        if (! Schema::hasTable('sync_runs')) {
+            return;
+        }
+
+        foreach ($repositories as $index => $repository) {
+            $completedAt =
+                $repository['last_successful_sync_at'];
+
+            $startedAt = $completedAt->subSeconds(
+                16 + ($index * 4)
+            );
+
+            DB::table('sync_runs')->insert(
+                $this->filterPayload('sync_runs', [
+                    'repository_id' => $repository['id'],
+                    'trigger_type' => 'scheduled',
+                    'status' => 'successful',
+                    'started_at' => $startedAt,
+                    'completed_at' => $completedAt,
+                    'cursor_before' => null,
+                    'cursor_after' =>
+                    $this->anchor->toIso8601String(),
+                    'created_count' => 48,
+                    'updated_count' => 0,
+                    'unchanged_count' => 0,
+                    'skipped_count' => 0,
+                    'failed_count' => 0,
+                    'rate_limit_remaining' =>
+                    4_800 - ($index * 50),
+                    'rate_limit_reset_at' =>
+                    $this->anchor->addHour(),
+                    'error_category' => null,
+                    'error_summary' => null,
+                    'created_at' => $startedAt,
+                    'updated_at' => $completedAt,
+                ])
+            );
+        }
+    }
+
+    private function pullRequestTitle(
+        string $repositoryName,
+        int $index
+    ): string {
+        $actions = [
+            'Add',
+            'Improve',
+            'Refactor',
+            'Fix',
+            'Optimize',
+            'Update',
+            'Harden',
+            'Simplify',
+        ];
+
+        $subjects = [
+            'authentication flow',
+            'invoice reconciliation',
+            'dashboard filters',
+            'repository synchronization',
+            'error handling',
+            'database query performance',
+            'accessibility labels',
+            'session validation',
+            'pagination behavior',
+            'mobile navigation',
+            'audit logging',
+            'API response mapping',
+        ];
+
+        $action = $actions[($index + $this->randomSeed) % count($actions)];
+
+        $subject = $subjects[(($index * 3) + $this->randomSeed)
+            % count($subjects)];
+
+        return "{$action} {$subject} in {$repositoryName}";
+    }
+
+    /**
+     * Insert a row and return its local primary key.
+     *
+     * Fields not found in the current migration are ignored, which
+     * permits optional fields such as display_name or description.
+     *
+     * Required fields must still match the migration exactly.
+     *
+     * @param array<string, mixed> $payload
+     */
+    private function insertGetId(
+        string $table,
+        array $payload
+    ): int {
+        $filteredPayload = $this->filterPayload(
+            $table,
+            $payload
+        );
+
+        if ($filteredPayload === []) {
+            throw new RuntimeException(
+                "No compatible columns found for table [{$table}]."
+            );
+        }
+
+        return (int) DB::table($table)
+            ->insertGetId($filteredPayload);
+    }
+
+    /**
+     * Remove optional payload keys that are not present in a table.
+     *
+     * @param array<string, mixed> $payload
+     *
+     * @return array<string, mixed>
+     */
+    private function filterPayload(
+        string $table,
+        array $payload
+    ): array {
+        $columns = $this->columnCache[$table]
+            ??= Schema::getColumnListing($table);
+
+        return array_intersect_key(
+            $payload,
+            array_flip($columns)
+        );
+    }
+}

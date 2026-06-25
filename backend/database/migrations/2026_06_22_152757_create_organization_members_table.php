@@ -13,7 +13,14 @@ return new class extends Migration
     {
         Schema::create('organization_members', function (Blueprint $table) {
             $table->id();
+            $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
+            $table->foreignId('user_id')->constrained()->cascadeOnDelete();
+            $table->string('role', 32);
+            $table->timestampTz('joined_at')->nullable();
             $table->timestamps();
+
+            $table->unique(['organization_id', 'user_id']);
+            $table->index(['organization_id', 'role']);
         });
     }
 

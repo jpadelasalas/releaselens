@@ -15,8 +15,11 @@ return new class extends Migration
             $table->id();
             $table->string('name');
             $table->string('email')->unique();
+            $table->string('normalized_email')->nullable()->unique();
             $table->timestamp('email_verified_at')->nullable();
             $table->string('password');
+            $table->string('timezone', 64)->default('UTC');
+            $table->timestamp('disabled_at')->nullable();
             $table->rememberToken();
             $table->timestamps();
         });
