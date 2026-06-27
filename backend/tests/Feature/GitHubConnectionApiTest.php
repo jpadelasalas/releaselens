@@ -4,10 +4,19 @@ namespace Tests\Feature;
 
 use App\Models\User;
 use App\Modules\GitHub\Contracts\GitHubAppClientInterface;
+use App\Modules\GitHub\Exceptions\GitHubConnectionException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
+
+abstract class FakeGitHubAppClient implements GitHubAppClientInterface
+{
+    public function installationRepositories(int $installationId): array
+    {
+        return [];
+    }
+}
 
 class GitHubConnectionApiTest extends TestCase
 {
@@ -25,7 +34,7 @@ class GitHubConnectionApiTest extends TestCase
 
         $this->app->instance(
             GitHubAppClientInterface::class,
-            new class implements GitHubAppClientInterface
+            new class extends FakeGitHubAppClient
             {
                 public function installation(int $installationId): array
                 {
@@ -142,7 +151,7 @@ class GitHubConnectionApiTest extends TestCase
     {
         $this->app->instance(
             GitHubAppClientInterface::class,
-            new class implements GitHubAppClientInterface
+            new class extends FakeGitHubAppClient
             {
                 public function installation(int $installationId): array
                 {
@@ -190,6 +199,7 @@ class GitHubConnectionApiTest extends TestCase
             ->getJson("/api/v1/organizations/{$organizationId}/github/connection")
             ->assertOk()
             ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.verification_status', 'verified')
             ->assertJsonPath('data.account.login', 'acme-engineering')
             ->assertJsonMissingPath('data.github_installation_id');
 
@@ -212,6 +222,113 @@ class GitHubConnectionApiTest extends TestCase
         $this->assertDatabaseHas('audit_logs', [
             'organization_id' => $organizationId,
             'event_type' => 'github.disconnected',
+        ]);
+    }
+
+    public function test_status_refreshes_repository_selection_and_suspension_from_github(): void
+    {
+        $owner = $this->user('owner@example.com');
+        $organizationId = $this->organization();
+        $this->membership($organizationId, $owner->id, 'owner');
+        $installationId = $this->installation($organizationId);
+        DB::table('github_installations')->where('id', $installationId)->update([
+            'repository_selection' => 'all',
+        ]);
+        $this->app->instance(
+            GitHubAppClientInterface::class,
+            new class extends FakeGitHubAppClient
+            {
+                public function installation(int $installationId): array
+                {
+                    return [
+                        'id' => $installationId,
+                        'account' => ['id' => 987, 'login' => 'acme-engineering', 'type' => 'Organization'],
+                        'repository_selection' => 'selected',
+                        'permissions' => ['metadata' => 'read', 'pull_requests' => 'read'],
+                        'suspended_at' => '2026-06-27T14:00:00Z',
+                    ];
+                }
+            },
+        );
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/organizations/{$organizationId}/github/connection")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'action_required')
+            ->assertJsonPath('data.repository_selection', 'selected')
+            ->assertJsonPath('data.verification_status', 'verified');
+        $this->assertDatabaseHas('github_installations', [
+            'id' => $installationId,
+            'repository_selection' => 'selected',
+        ]);
+    }
+
+    public function test_status_marks_a_remotely_removed_installation_disconnected(): void
+    {
+        $owner = $this->user('owner@example.com');
+        $organizationId = $this->organization();
+        $this->membership($organizationId, $owner->id, 'owner');
+        $installationId = $this->installation($organizationId);
+        $this->repository($organizationId, $installationId);
+        $this->app->instance(
+            GitHubAppClientInterface::class,
+            new class extends FakeGitHubAppClient
+            {
+                public function installation(int $installationId): array
+                {
+                    throw new GitHubConnectionException(
+                        'GITHUB_INSTALLATION_NOT_FOUND',
+                        'The GitHub installation no longer exists.',
+                        404,
+                    );
+                }
+            },
+        );
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/organizations/{$organizationId}/github/connection")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'disconnected')
+            ->assertJsonPath('data.verification_status', 'verified');
+        $this->assertDatabaseMissing('repositories', [
+            'organization_id' => $organizationId,
+            'sync_enabled' => true,
+        ]);
+        $this->assertDatabaseHas('audit_logs', [
+            'organization_id' => $organizationId,
+            'event_type' => 'github.disconnected_remotely',
+        ]);
+    }
+
+    public function test_temporary_github_failure_does_not_disconnect_installation(): void
+    {
+        $owner = $this->user('owner@example.com');
+        $organizationId = $this->organization();
+        $this->membership($organizationId, $owner->id, 'owner');
+        $installationId = $this->installation($organizationId);
+        $this->app->instance(
+            GitHubAppClientInterface::class,
+            new class extends FakeGitHubAppClient
+            {
+                public function installation(int $installationId): array
+                {
+                    throw new GitHubConnectionException(
+                        'GITHUB_API_UNAVAILABLE',
+                        'GitHub could not be reached.',
+                        503,
+                    );
+                }
+            },
+        );
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/organizations/{$organizationId}/github/connection")
+            ->assertOk()
+            ->assertJsonPath('data.status', 'active')
+            ->assertJsonPath('data.verification_status', 'unavailable');
+        $this->assertDatabaseHas('github_installations', [
+            'id' => $installationId,
+            'disconnected_at' => null,
         ]);
     }
 

@@ -13,14 +13,19 @@ vi.mock(
 
 const mockedContext = vi.mocked(useGitHubConnectionFeatureContext)
 const disconnect = vi.fn()
+const refresh = vi.fn()
+let contextValue: ReturnType<typeof useGitHubConnectionFeatureContext>
 
 describe('GitHubConnectionPanel', () => {
   beforeEach(() => {
     disconnect.mockReset()
     disconnect.mockResolvedValue(undefined)
-    mockedContext.mockReturnValue({
+    refresh.mockReset()
+    refresh.mockResolvedValue(undefined)
+    contextValue = {
       connection: {
         status: 'active',
+        verification_status: 'verified',
         account: { login: 'acme-engineering', type: 'Organization' },
         repository_selection: 'selected',
         permissions: { pull_requests: 'read' },
@@ -30,12 +35,15 @@ describe('GitHubConnectionPanel', () => {
       canConnect: true,
       canDisconnect: true,
       isLoading: false,
+      isRefreshing: false,
       isSubmitting: false,
       error: null,
       connect: vi.fn(),
       disconnect,
+      refresh,
       clearError: vi.fn(),
-    })
+    }
+    mockedContext.mockReturnValue(contextValue)
   })
 
   it('requires confirmation before disconnecting', async () => {
@@ -59,5 +67,40 @@ describe('GitHubConnectionPanel', () => {
     await user.click(disconnectButtons.at(-1)!)
 
     expect(disconnect).toHaveBeenCalledOnce()
+  })
+
+  it('refreshes live GitHub connection metadata on demand', async () => {
+    const user = userEvent.setup()
+    render(
+      <MemoryRouter>
+        <GitHubConnectionPanel />
+      </MemoryRouter>,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Refresh' }))
+
+    expect(refresh).toHaveBeenCalledOnce()
+  })
+
+  it('offers reconnection after a remote uninstall', () => {
+    mockedContext.mockReturnValue({
+      ...contextValue,
+      connection: {
+        ...contextValue.connection!,
+        status: 'disconnected',
+      },
+    })
+
+    render(
+      <MemoryRouter>
+        <GitHubConnectionPanel />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText('Disconnected')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Reconnect' })).toBeInTheDocument()
+    expect(
+      screen.queryByRole('button', { name: 'Disconnect' }),
+    ).not.toBeInTheDocument()
   })
 })

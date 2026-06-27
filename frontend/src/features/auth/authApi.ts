@@ -1,16 +1,13 @@
 import axios from 'axios'
 
 import api from '../../lib/api'
+import { prepareCsrfCookie } from '../../lib/csrf'
 import {
   authSessionResponseSchema,
   type AuthSession,
   type RegisterValues,
   type SignInValues,
 } from './authSchemas'
-
-export async function prepareCsrfCookie() {
-  await api.get('/api/v1/auth/csrf-cookie')
-}
 
 export async function signIn(values: SignInValues): Promise<AuthSession> {
   await prepareCsrfCookie()

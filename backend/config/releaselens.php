@@ -13,6 +13,7 @@ return [
         'api_version' => env('GITHUB_API_VERSION', '2026-03-10'),
         'user_agent' => env('GITHUB_USER_AGENT', 'ReleaseLens/1.0'),
         'state_ttl_minutes' => (int) env('GITHUB_STATE_TTL_MINUTES', 10),
+        'repository_page_limit' => (int) env('GITHUB_REPOSITORY_PAGE_LIMIT', 10),
     ],
 
     'demo' => [

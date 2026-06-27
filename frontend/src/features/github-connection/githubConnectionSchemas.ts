@@ -1,7 +1,8 @@
 import { z } from 'zod'
 
 export const githubConnectionSchema = z.object({
-  status: z.enum(['active', 'action_required']),
+  status: z.enum(['active', 'action_required', 'disconnected']),
+  verification_status: z.enum(['verified', 'unavailable']),
   account: z.object({
     login: z.string().nullable(),
     type: z.string().nullable(),

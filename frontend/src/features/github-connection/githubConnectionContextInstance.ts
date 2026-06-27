@@ -7,10 +7,12 @@ export type GitHubConnectionFeatureContextValue = {
   canConnect: boolean
   canDisconnect: boolean
   isLoading: boolean
+  isRefreshing: boolean
   isSubmitting: boolean
   error: string | null
   connect: () => Promise<void>
   disconnect: () => Promise<void>
+  refresh: () => Promise<void>
   clearError: () => void
 }
 

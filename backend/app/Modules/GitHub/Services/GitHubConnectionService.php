@@ -144,8 +144,11 @@ class GitHubConnectionService
     }
 
     /** @return array<string, mixed>|null */
-    public function status(User $user, int $organizationId): ?array
-    {
+    public function status(
+        User $user,
+        int $organizationId,
+        Request $request,
+    ): ?array {
         $this->assertRole($user, $organizationId, [
             OrganizationRole::Owner,
             OrganizationRole::Manager,
@@ -153,7 +156,51 @@ class GitHubConnectionService
         ]);
         $connection = $this->connections->activeForOrganization($organizationId);
 
-        return $connection === null ? null : $this->payload($connection);
+        if ($connection === null) {
+            $latestConnection = $this->connections
+                ->latestForOrganization($organizationId);
+
+            return $latestConnection === null
+                ? null
+                : $this->payload($latestConnection, 'verified');
+        }
+
+        try {
+            $metadata = $this->github->installation(
+                (int) $connection->github_installation_id,
+            );
+
+            if ((int) ($metadata['id'] ?? 0) !== (int) $connection->github_installation_id) {
+                throw new GitHubConnectionException(
+                    'GITHUB_INSTALLATION_INVALID',
+                    'GitHub returned unexpected installation information.',
+                    502,
+                );
+            }
+
+            $connection = $this->connections->refreshMetadata(
+                (int) $connection->id,
+                $metadata,
+            );
+
+            return $this->payload($connection, 'verified');
+        } catch (GitHubConnectionException $exception) {
+            if ($exception->errorCode === 'GITHUB_INSTALLATION_NOT_FOUND') {
+                $connection = $this->connections->markDisconnectedRemotely(
+                    $organizationId,
+                    (int) $connection->id,
+                    $user->id,
+                    $request->ip(),
+                    $request->userAgent(),
+                );
+
+                return $this->payload($connection, 'verified');
+            }
+
+            report($exception);
+
+            return $this->payload($connection, 'unavailable');
+        }
     }
 
     public function disconnect(User $user, int $organizationId, Request $request): void
@@ -175,16 +222,27 @@ class GitHubConnectionService
     }
 
     /** @return array<string, mixed> */
-    private function payload(object $connection): array
-    {
+    private function payload(
+        object $connection,
+        string $verificationStatus,
+    ): array {
+        $permissions = json_decode($connection->permissions ?? '{}', true);
+        $status = match (true) {
+            $connection->disconnected_at !== null => 'disconnected',
+            $connection->suspended_at !== null => 'action_required',
+            ! $this->permissionsAreReadOnly($permissions) => 'action_required',
+            default => 'active',
+        };
+
         return [
-            'status' => $connection->suspended_at === null ? 'active' : 'action_required',
+            'status' => $status,
+            'verification_status' => $verificationStatus,
             'account' => [
                 'login' => $connection->github_account_login,
                 'type' => $connection->github_account_type,
             ],
             'repository_selection' => $connection->repository_selection,
-            'permissions' => json_decode($connection->permissions ?? '{}', true),
+            'permissions' => $permissions,
             'connected_at' => $connection->connected_at,
             'suspended_at' => $connection->suspended_at,
         ];
@@ -193,22 +251,25 @@ class GitHubConnectionService
     /** @param array<string, mixed> $permissions */
     private function assertReadOnlyPermissions(array $permissions): void
     {
-        $hasWritePermission = false;
-
-        foreach ($permissions as $level) {
-            if (in_array($level, ['write', 'admin'], true)) {
-                $hasWritePermission = true;
-                break;
-            }
-        }
-
-        if ($hasWritePermission || ($permissions['pull_requests'] ?? null) !== 'read') {
+        if (! $this->permissionsAreReadOnly($permissions)) {
             throw new GitHubConnectionException(
                 'GITHUB_PERMISSIONS_INVALID',
                 'The GitHub App must use read-only pull-request permissions.',
                 422,
             );
         }
+    }
+
+    /** @param array<string, mixed> $permissions */
+    private function permissionsAreReadOnly(array $permissions): bool
+    {
+        foreach ($permissions as $level) {
+            if (in_array($level, ['write', 'admin'], true)) {
+                return false;
+            }
+        }
+
+        return ($permissions['pull_requests'] ?? null) === 'read';
     }
 
     /** @param array<int, OrganizationRole> $allowedRoles */

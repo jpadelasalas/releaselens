@@ -13,8 +13,17 @@ describe('DashboardFilters', () => {
         repositories={[
           {
             id: 7,
+            github_repository_id: 7007,
             name: 'billing-api',
             full_name: 'northstar/billing-api',
+            description: null,
+            visibility: 'private',
+            default_branch: 'main',
+            html_url: null,
+            is_archived: false,
+            sync_enabled: true,
+            sync_status: 'success',
+            last_sync_at: null,
             last_successful_sync_at: null,
           },
         ]}

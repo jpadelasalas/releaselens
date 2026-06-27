@@ -13,5 +13,6 @@ export function useGitHubConnection(organizationId: number | null) {
       return getGitHubConnection(organizationId)
     },
     enabled: organizationId !== null,
+    staleTime: 30_000,
   })
 }

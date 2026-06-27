@@ -4,20 +4,37 @@ namespace App\Modules\GitHub\Clients;
 
 use App\Modules\GitHub\Contracts\GitHubAppClientInterface;
 use App\Modules\GitHub\Exceptions\GitHubConnectionException;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Http;
 
 class GitHubAppClient implements GitHubAppClientInterface
 {
     public function installation(int $installationId): array
     {
-        $response = Http::baseUrl((string) config('releaselens.github.api_url'))
-            ->accept('application/vnd.github+json')
-            ->withToken($this->appJwt())
-            ->withHeaders([
-                'X-GitHub-Api-Version' => config('releaselens.github.api_version'),
-                'User-Agent' => config('releaselens.github.user_agent'),
-            ])
-            ->get("/app/installations/{$installationId}");
+        try {
+            $response = Http::baseUrl((string) config('releaselens.github.api_url'))
+                ->accept('application/vnd.github+json')
+                ->withToken($this->appJwt())
+                ->withHeaders([
+                    'X-GitHub-Api-Version' => config('releaselens.github.api_version'),
+                    'User-Agent' => config('releaselens.github.user_agent'),
+                ])
+                ->get("/app/installations/{$installationId}");
+        } catch (ConnectionException) {
+            throw new GitHubConnectionException(
+                'GITHUB_API_UNAVAILABLE',
+                'GitHub could not be reached to verify the installation.',
+                503,
+            );
+        }
+
+        if ($response->notFound()) {
+            throw new GitHubConnectionException(
+                'GITHUB_INSTALLATION_NOT_FOUND',
+                'The GitHub installation no longer exists.',
+                404,
+            );
+        }
 
         if ($response->failed()) {
             throw new GitHubConnectionException(
@@ -28,6 +45,67 @@ class GitHubAppClient implements GitHubAppClientInterface
         }
 
         return $response->json();
+    }
+
+    public function installationRepositories(int $installationId): array
+    {
+        try {
+            $tokenResponse = Http::baseUrl((string) config('releaselens.github.api_url'))
+                ->accept('application/vnd.github+json')
+                ->withToken($this->appJwt())
+                ->withHeaders($this->standardHeaders())
+                ->post("/app/installations/{$installationId}/access_tokens");
+        } catch (ConnectionException) {
+            $this->throwUnavailable();
+        }
+
+        if ($tokenResponse->notFound()) {
+            $this->throwInstallationNotFound();
+        }
+
+        if ($tokenResponse->failed() || ! is_string($tokenResponse->json('token'))) {
+            $this->throwUnavailable();
+        }
+
+        $token = $tokenResponse->json('token');
+        $repositories = [];
+        $pageLimit = max(
+            1,
+            (int) config('releaselens.github.repository_page_limit'),
+        );
+
+        for ($page = 1; $page <= $pageLimit; $page++) {
+            try {
+                $response = Http::baseUrl((string) config('releaselens.github.api_url'))
+                    ->accept('application/vnd.github+json')
+                    ->withToken($token)
+                    ->withHeaders($this->standardHeaders())
+                    ->get('/installation/repositories', [
+                        'per_page' => 100,
+                        'page' => $page,
+                    ]);
+            } catch (ConnectionException) {
+                $this->throwUnavailable();
+            }
+
+            if ($response->failed()) {
+                $this->throwUnavailable();
+            }
+
+            $pageRepositories = $response->json('repositories');
+
+            if (! is_array($pageRepositories)) {
+                $this->throwUnavailable();
+            }
+
+            array_push($repositories, ...$pageRepositories);
+
+            if (count($pageRepositories) < 100) {
+                break;
+            }
+        }
+
+        return $repositories;
     }
 
     private function appJwt(): string
@@ -89,5 +167,32 @@ class GitHubAppClient implements GitHubAppClientInterface
     private function base64Url(string $value): string
     {
         return rtrim(strtr(base64_encode($value), '+/', '-_'), '=');
+    }
+
+    /** @return array<string, string> */
+    private function standardHeaders(): array
+    {
+        return [
+            'X-GitHub-Api-Version' => (string) config('releaselens.github.api_version'),
+            'User-Agent' => (string) config('releaselens.github.user_agent'),
+        ];
+    }
+
+    private function throwInstallationNotFound(): never
+    {
+        throw new GitHubConnectionException(
+            'GITHUB_INSTALLATION_NOT_FOUND',
+            'The GitHub installation no longer exists.',
+            404,
+        );
+    }
+
+    private function throwUnavailable(): never
+    {
+        throw new GitHubConnectionException(
+            'GITHUB_API_UNAVAILABLE',
+            'GitHub could not be reached to load installation repositories.',
+            503,
+        );
     }
 }

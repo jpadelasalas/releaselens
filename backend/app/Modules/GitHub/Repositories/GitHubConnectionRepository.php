@@ -16,6 +16,14 @@ class GitHubConnectionRepository implements GitHubConnectionRepositoryInterface
             ->first();
     }
 
+    public function latestForOrganization(int $organizationId): ?object
+    {
+        return DB::table('github_installations')
+            ->where('organization_id', $organizationId)
+            ->latest('id')
+            ->first();
+    }
+
     public function activeByInstallationId(int $installationId): ?object
     {
         return DB::table('github_installations')
@@ -47,6 +55,59 @@ class GitHubConnectionRepository implements GitHubConnectionRepositoryInterface
 
         return DB::table('github_installations')
             ->where('github_installation_id', $installationId)
+            ->first();
+    }
+
+    public function refreshMetadata(int $installationRecordId, array $metadata): object
+    {
+        DB::table('github_installations')
+            ->where('id', $installationRecordId)
+            ->update([
+                'github_account_id' => $metadata['account']['id'] ?? null,
+                'github_account_login' => $metadata['account']['login'] ?? null,
+                'github_account_type' => $metadata['account']['type'] ?? null,
+                'repository_selection' => $metadata['repository_selection'] ?? null,
+                'permissions' => json_encode($metadata['permissions'] ?? [], JSON_THROW_ON_ERROR),
+                'suspended_at' => $metadata['suspended_at'] ?? null,
+                'updated_at' => now(),
+            ]);
+
+        return DB::table('github_installations')
+            ->where('id', $installationRecordId)
+            ->first();
+    }
+
+    public function markDisconnectedRemotely(
+        int $organizationId,
+        int $installationRecordId,
+        int $actorUserId,
+        ?string $ipAddress,
+        ?string $userAgent,
+    ): object {
+        DB::transaction(function () use ($organizationId, $installationRecordId, $actorUserId, $ipAddress, $userAgent): void {
+            DB::table('github_installations')
+                ->where('id', $installationRecordId)
+                ->where('organization_id', $organizationId)
+                ->update(['disconnected_at' => now(), 'updated_at' => now()]);
+
+            DB::table('repositories')
+                ->where('organization_id', $organizationId)
+                ->where('github_installation_id', $installationRecordId)
+                ->update(['sync_enabled' => false, 'updated_at' => now()]);
+
+            $this->recordAuditEvent(
+                $organizationId,
+                $actorUserId,
+                'github.disconnected_remotely',
+                $installationRecordId,
+                [],
+                $ipAddress,
+                $userAgent,
+            );
+        });
+
+        return DB::table('github_installations')
+            ->where('id', $installationRecordId)
             ->first();
     }
 

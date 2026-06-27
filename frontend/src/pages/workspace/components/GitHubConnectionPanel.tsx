@@ -1,5 +1,6 @@
 import GitHubIcon from '@mui/icons-material/GitHub'
 import LinkOutlinedIcon from '@mui/icons-material/LinkOutlined'
+import RefreshOutlinedIcon from '@mui/icons-material/RefreshOutlined'
 import { useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 
@@ -29,15 +30,28 @@ export function GitHubConnectionPanel() {
     canConnect,
     canDisconnect,
     isLoading,
+    isRefreshing,
     isSubmitting,
     error,
     connect,
     disconnect,
+    refresh,
     clearError,
   } = useGitHubConnectionFeatureContext()
   const callbackStatus = searchParams.get('github')
-  const callbackMessage = callbackStatus
-    ? callbackMessages[callbackStatus]
+  const callbackMessage =
+    callbackStatus === 'connected' && connection?.status !== 'active'
+      ? null
+      : callbackStatus
+        ? callbackMessages[callbackStatus]
+        : null
+  const isDisconnected = connection?.status === 'disconnected'
+  const statusLabel = connection
+    ? {
+        active: 'Active',
+        action_required: 'Action required',
+        disconnected: 'Disconnected',
+      }[connection.status]
     : null
 
   async function handleConnect() {
@@ -61,6 +75,16 @@ export function GitHubConnectionPanel() {
     }
   }
 
+  async function handleRefresh() {
+    clearError()
+
+    try {
+      await refresh()
+    } catch {
+      // Query state exposes the controlled API error.
+    }
+  }
+
   return (
     <section className="mt-8" aria-labelledby="github-connection-title">
       <div className="flex flex-wrap items-end justify-between gap-3">
@@ -76,8 +100,14 @@ export function GitHubConnectionPanel() {
           </p>
         </div>
         {connection && (
-          <span className="rounded-full bg-[var(--color-primary-soft)] px-3 py-1 text-xs font-bold uppercase text-[var(--color-primary-strong)]">
-            {connection.status === 'active' ? 'Active' : 'Action required'}
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+              connection.status === 'active'
+                ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary-strong)]'
+                : 'bg-[var(--color-warning-bg)] text-[var(--color-heading)]'
+            }`}
+          >
+            {statusLabel}
           </span>
         )}
       </div>
@@ -100,9 +130,21 @@ export function GitHubConnectionPanel() {
         </div>
       )}
 
+      {connection?.verification_status === 'unavailable' && (
+        <div
+          className="mt-4 rounded-md border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-3 text-sm"
+          role="status"
+        >
+          GitHub could not be reached. Showing the last known connection state.
+        </div>
+      )}
+
       <div className="mt-4 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-6">
         {isLoading ? (
-          <div className="h-24 animate-pulse rounded-md bg-[var(--color-page-alt)]" aria-label="Loading GitHub connection" />
+          <div
+            className="h-24 animate-pulse rounded-md bg-[var(--color-page-alt)]"
+            aria-label="Loading GitHub connection"
+          />
         ) : connection ? (
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">
             <div className="flex items-start gap-4">
@@ -114,23 +156,58 @@ export function GitHubConnectionPanel() {
                   {connection.account.login ?? 'GitHub account'}
                 </strong>
                 <p className="mt-1 text-sm text-[var(--color-muted)]">
-                  {connection.account.type ?? 'Account'} · {connection.repository_selection ?? 'selected'} repositories
+                  {connection.account.type ?? 'Account'} -{' '}
+                  {connection.repository_selection === 'all'
+                    ? 'all repositories'
+                    : 'selected repositories'}
                 </p>
                 <p className="mt-1 text-xs text-[var(--color-subtle)]">
-                  Connected {connection.connected_at ? new Date(connection.connected_at).toLocaleString() : 'recently'}
+                  {isDisconnected ? 'Previously connected' : 'Connected'}{' '}
+                  {connection.connected_at
+                    ? new Date(connection.connected_at).toLocaleString()
+                    : 'recently'}
                 </p>
+                {connection.status === 'action_required' && (
+                  <p className="mt-2 text-sm text-[var(--color-muted)]">
+                    Review the installation in GitHub, then refresh this status.
+                  </p>
+                )}
               </div>
             </div>
-            {canDisconnect && (
+            <div className="flex flex-wrap gap-2">
               <button
                 className="min-h-10 rounded-md border border-[var(--color-border-strong)] px-4 text-sm font-bold text-[var(--color-heading)]"
                 type="button"
-                disabled={isSubmitting}
-                onClick={() => setConfirmingDisconnect(true)}
+                disabled={isRefreshing || isSubmitting}
+                onClick={() => void handleRefresh()}
               >
-                Disconnect
+                <span className="inline-flex items-center gap-2">
+                  <RefreshOutlinedIcon fontSize="small" />
+                  {isRefreshing ? 'Refreshing...' : 'Refresh'}
+                </span>
               </button>
-            )}
+              {isDisconnected && canConnect && (
+                <button
+                  className="primary-action justify-center"
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => void handleConnect()}
+                >
+                  <GitHubIcon fontSize="small" />
+                  Reconnect
+                </button>
+              )}
+              {!isDisconnected && canDisconnect && (
+                <button
+                  className="min-h-10 rounded-md border border-[var(--color-border-strong)] px-4 text-sm font-bold text-[var(--color-heading)]"
+                  type="button"
+                  disabled={isSubmitting}
+                  onClick={() => setConfirmingDisconnect(true)}
+                >
+                  Disconnect
+                </button>
+              )}
+            </div>
           </div>
         ) : (
           <div className="flex flex-col justify-between gap-5 sm:flex-row sm:items-center">

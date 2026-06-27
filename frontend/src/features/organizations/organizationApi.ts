@@ -1,5 +1,5 @@
 import api from '../../lib/api'
-import { prepareCsrfCookie } from '../auth/authApi'
+import { prepareCsrfCookie } from '../../lib/csrf'
 import {
   authSessionResponseSchema,
   type AuthSession,

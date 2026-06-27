@@ -19,7 +19,10 @@ use App\Modules\Organizations\Http\Controllers\ListOrganizationsController;
 use App\Modules\Organizations\Http\Controllers\RemoveOrganizationMemberController;
 use App\Modules\Organizations\Http\Controllers\UpdateOrganizationMemberController;
 use App\Modules\PullRequests\Http\Controllers\PullRequestExplorerController;
+use App\Modules\Repositories\Http\Controllers\AvailableGitHubRepositoriesController;
+use App\Modules\Repositories\Http\Controllers\ImportRepositoriesController;
 use App\Modules\Repositories\Http\Controllers\OrganizationRepositoryController;
+use App\Modules\Repositories\Http\Controllers\UpdateRepositoryMonitoringController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -90,6 +93,25 @@ Route::prefix('v1')
                     Route::delete('/connection', DisconnectGitHubConnectionController::class)
                         ->name('github.connection.destroy');
                 });
+
+            Route::get(
+                '/organizations/{org}/github/available-repositories',
+                AvailableGitHubRepositoriesController::class,
+            )
+                ->whereNumber('org')
+                ->name('github.repositories.available');
+            Route::post(
+                '/organizations/{org}/repositories/import',
+                ImportRepositoriesController::class,
+            )
+                ->whereNumber('org')
+                ->name('repositories.import');
+            Route::patch(
+                '/organizations/{org}/repositories/{repository}',
+                UpdateRepositoryMonitoringController::class,
+            )
+                ->whereNumber(['org', 'repository'])
+                ->name('repositories.update');
         });
     });
 

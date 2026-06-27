@@ -46,6 +46,13 @@ export function GitHubConnectionFeatureProvider({ children }: PropsWithChildren)
   const disconnect = useCallback(async () => {
     await disconnectMutation.mutateAsync()
   }, [disconnectMutation])
+  const refresh = useCallback(async () => {
+    const result = await connectionQuery.refetch()
+
+    if (result.error) {
+      throw result.error
+    }
+  }, [connectionQuery])
   const clearError = useCallback(() => {
     connectMutation.reset()
     disconnectMutation.reset()
@@ -58,10 +65,12 @@ export function GitHubConnectionFeatureProvider({ children }: PropsWithChildren)
       canConnect: role === 'owner' || role === 'manager',
       canDisconnect: role === 'owner',
       isLoading: connectionQuery.isLoading,
+      isRefreshing: connectionQuery.isFetching && !connectionQuery.isLoading,
       isSubmitting: connectMutation.isPending || disconnectMutation.isPending,
       error: error ? getGitHubConnectionError(error) : null,
       connect,
       disconnect,
+      refresh,
       clearError,
     }),
     [
@@ -70,9 +79,11 @@ export function GitHubConnectionFeatureProvider({ children }: PropsWithChildren)
       connectMutation.isPending,
       connectionQuery.data,
       connectionQuery.isLoading,
+      connectionQuery.isFetching,
       disconnect,
       disconnectMutation.isPending,
       error,
+      refresh,
       role,
     ],
   )

@@ -18,6 +18,8 @@ class ShowGitHubConnectionController extends Controller
         /** @var User $user */
         $user = $request->user();
 
-        return $this->successResponse($connections->status($user, $org));
+        return $this->successResponse(
+            $connections->status($user, $org, $request),
+        );
     }
 }
