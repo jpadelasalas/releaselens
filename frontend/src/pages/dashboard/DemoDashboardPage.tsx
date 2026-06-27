@@ -1,3 +1,4 @@
+import { lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import { ThemeToggle } from '../../components/theme/ThemeToggle'
@@ -5,10 +6,18 @@ import type { AnalyticsAttentionRecord } from '../../features/analytics/analytic
 import { useDashboardAnalytics } from '../../features/analytics/useDashboardAnalytics'
 import { useDashboardFilters } from '../../features/analytics/useDashboardFilters'
 import { useOrganizationRepositories } from '../../features/repositories/useOrganizationRepositories'
+import { buildWaitingForReviewUrl } from '../../features/pull-requests/pullRequestExplorerUrl'
 import { DashboardFilters } from './components/DashboardFilters'
+import { DashboardLoadingSkeleton } from './components/DashboardLoadingSkeleton'
 import { DashboardNav } from './components/DashboardNav'
 import { DistributionPanel } from './components/DistributionPanel'
 import { MetricCard } from './components/MetricCard'
+
+const WeeklyFlowChart = lazy(() =>
+  import('./components/WeeklyFlowChart').then((module) => ({
+    default: module.WeeklyFlowChart,
+  })),
+)
 
 export function DemoDashboardPage() {
   const { scope } = useScopeContext()
@@ -42,9 +51,6 @@ export function DemoDashboardPage() {
   const largePrBucket = analytics?.distributions.buckets.pr_size.find(
     (bucket) => bucket.key === 'large',
   )
-  const chartBars = analytics
-    ? toChartBars(analytics.trends.series.opened_vs_merged_by_week)
-    : []
   const attentionRecords = analytics?.attention.records.slice(0, 5) ?? []
   const freshnessLabel = analytics?.summary.demo_freshness_at
     ? `Fresh ${formatDateTime(analytics.summary.demo_freshness_at)}`
@@ -74,15 +80,9 @@ export function DemoDashboardPage() {
           </div>
         </header>
 
-        <DashboardFilters
-          repositories={repositoriesQuery.data ?? []}
-          initialFilters={dashboardFilters.defaults}
-          disabled={repositoriesQuery.isLoading || dashboardQuery.isFetching}
-          onApply={dashboardFilters.applyFilters}
-          onClear={dashboardFilters.clearFilters}
-        />
-
-        {dashboardQuery.isError ? (
+        {dashboardQuery.isLoading ? (
+          <DashboardLoadingSkeleton />
+        ) : dashboardQuery.isError ? (
           <section className="retry-panel dashboard-error" role="alert">
             <strong>Dashboard analytics are unavailable.</strong>
             <span>Free-tier services may still be waking up. Retry in a moment.</span>
@@ -92,6 +92,14 @@ export function DemoDashboardPage() {
           </section>
         ) : (
           <>
+            <DashboardFilters
+              repositories={repositoriesQuery.data ?? []}
+              initialFilters={dashboardFilters.defaults}
+              disabled={repositoriesQuery.isLoading || dashboardQuery.isFetching}
+              onApply={dashboardFilters.applyFilters}
+              onClear={dashboardFilters.clearFilters}
+            />
+
             <section className="dashboard-meta" aria-label="Dashboard freshness">
               <span>
                 {dashboardQuery.isSuccess ? repositoryCount : '...'} repositories selected
@@ -108,6 +116,8 @@ export function DemoDashboardPage() {
                     : '...'
                 }
                 detail="Open, non-draft PRs without a qualifying human review."
+                to={buildWaitingForReviewUrl(dashboardFilters.filters)}
+                actionLabel="View waiting pull requests"
               />
               <MetricCard
                 label="Median first review"
@@ -157,19 +167,13 @@ export function DemoDashboardPage() {
             </section>
 
             <section className="dashboard-panels">
-              <article className="flow-panel">
-                <div>
-                  <h2>Opened versus merged</h2>
-                  <p>Weekly pull-request volume from the analytics API.</p>
-                </div>
-                <div className="large-chart" aria-label="Opened versus merged chart">
-                  {(chartBars.length > 0 ? chartBars : [18, 18, 18, 18]).map(
-                    (height, index) => (
-                      <span key={index} style={{ height: `${height}%` }} />
-                    ),
-                  )}
-                </div>
-              </article>
+              <Suspense fallback={<ChartLoadingFallback />}>
+                <WeeklyFlowChart
+                  series={
+                    analytics?.trends.series.opened_vs_merged_by_week ?? []
+                  }
+                />
+              </Suspense>
 
               <article className="attention-panel">
                 <h2>Attention list</h2>
@@ -193,6 +197,16 @@ export function DemoDashboardPage() {
         )}
       </section>
     </main>
+  )
+}
+
+function ChartLoadingFallback() {
+  return (
+    <article className="flow-panel" aria-busy="true">
+      <h2>Opened versus merged</h2>
+      <p>Loading chart...</p>
+      <div className="mt-5 h-[300px] animate-pulse rounded-md bg-[var(--color-primary-soft)]" />
+    </article>
   )
 }
 
@@ -243,20 +257,6 @@ function formatReason(reason: string): string {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
-}
-
-function toChartBars(
-  series: Array<{ opened: number; merged: number }>,
-): number[] {
-  const visibleSeries = series.slice(-12)
-  const maxValue = Math.max(
-    1,
-    ...visibleSeries.map((point) => Math.max(point.opened, point.merged)),
-  )
-
-  return visibleSeries.map((point) =>
-    Math.max(10, Math.round((Math.max(point.opened, point.merged) / maxValue) * 100)),
-  )
 }
 
 function round(value: number): string {

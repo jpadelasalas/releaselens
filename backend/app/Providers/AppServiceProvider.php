@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Modules\Analytics\Contracts\OrganizationAnalyticsRepositoryInterface;
 use App\Modules\Analytics\Repositories\OrganizationAnalyticsRepository;
+use App\Modules\PullRequests\Contracts\PullRequestRepositoryInterface;
+use App\Modules\PullRequests\Repositories\PullRequestRepository;
 use App\Modules\Repositories\Contracts\OrganizationRepositoryInterface;
 use App\Modules\Repositories\Repositories\OrganizationRepository;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -21,6 +23,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             OrganizationAnalyticsRepositoryInterface::class,
             OrganizationAnalyticsRepository::class,
+        );
+
+        $this->app->bind(
+            PullRequestRepositoryInterface::class,
+            PullRequestRepository::class,
         );
 
         $this->app->bind(

@@ -2,8 +2,9 @@ import { createBrowserRouter, Outlet } from 'react-router-dom'
 import { DemoLayout } from './layouts/DemoLayout'
 import { AppProviders } from './providers/AppProviders'
 import { SignInPage } from '../pages/auth/SignInPage'
-import { DemoDashboardPage } from '../pages/dashboard/DemoDashboardPage'
+import { DemoDashboardRoute } from '../pages/dashboard/DemoDashboardRoute'
 import { LandingPage } from '../pages/landing/LandingPage'
+import { DemoPullRequestExplorerRoute } from '../pages/pull-requests/DemoPullRequestExplorerRoute'
 
 export const router = createBrowserRouter([
   {
@@ -23,7 +24,11 @@ export const router = createBrowserRouter([
         children: [
           {
             path: 'dashboard',
-            element: <DemoDashboardPage />,
+            element: <DemoDashboardRoute />,
+          },
+          {
+            path: 'pull-requests',
+            element: <DemoPullRequestExplorerRoute />,
           },
         ],
       },

@@ -1,6 +1,7 @@
 import type { AppScope, ScopeStorage } from './scopeTypes'
 
-const scopeStorageKey = 'releaselens.scope'
+const scopeStorageKey = 'releaselens.scope.v2'
+const legacyScopeStorageKey = 'releaselens.scope'
 
 export function createMemoryScopeStorage(
   initialScope: AppScope | null = null,
@@ -24,6 +25,8 @@ export const browserScopeStorage: ScopeStorage = {
       return null
     }
 
+    window.sessionStorage.removeItem(legacyScopeStorageKey)
+
     const storedScope = window.sessionStorage.getItem(scopeStorageKey)
 
     if (!storedScope) {
@@ -31,7 +34,14 @@ export const browserScopeStorage: ScopeStorage = {
     }
 
     try {
-      return JSON.parse(storedScope) as AppScope
+      const parsedScope: unknown = JSON.parse(storedScope)
+
+      if (!isAppScope(parsedScope)) {
+        window.sessionStorage.removeItem(scopeStorageKey)
+        return null
+      }
+
+      return parsedScope
     } catch {
       window.sessionStorage.removeItem(scopeStorageKey)
       return null
@@ -51,4 +61,28 @@ export const browserScopeStorage: ScopeStorage = {
 
     window.sessionStorage.removeItem(scopeStorageKey)
   },
+}
+
+function isAppScope(value: unknown): value is AppScope {
+  if (!isRecord(value) || typeof value.kind !== 'string') {
+    return false
+  }
+
+  if (value.kind === 'anonymous') {
+    return true
+  }
+
+  return value.kind === 'demo' &&
+    typeof value.sessionId === 'string' &&
+    value.readOnly === true &&
+    isRecord(value.organization) &&
+    typeof value.organization.id === 'number' &&
+    typeof value.organization.name === 'string' &&
+    isRecord(value.capabilities) &&
+    isRecord(value.demo) &&
+    typeof value.demo.anchor_date === 'string'
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null
 }

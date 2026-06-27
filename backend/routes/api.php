@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\DemoSessionController;
 use App\Http\Middleware\EnsureDemoSessionIsReadOnly;
 use App\Modules\Analytics\Http\Controllers\OrganizationAnalyticsController;
+use App\Modules\PullRequests\Http\Controllers\PullRequestExplorerController;
 use App\Modules\Repositories\Http\Controllers\OrganizationRepositoryController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -39,4 +40,11 @@ Route::prefix('v1')
         )
             ->whereNumber('org')
             ->name('repositories.index');
+
+        Route::get(
+            '/organizations/{org}/pull-requests',
+            [PullRequestExplorerController::class, 'index'],
+        )
+            ->whereNumber('org')
+            ->name('pull-requests.index');
     });

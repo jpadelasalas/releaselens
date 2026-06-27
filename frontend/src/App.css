@@ -393,16 +393,14 @@
   font-size: 24px;
 }
 
-.preview-chart,
-.large-chart {
+.preview-chart {
   align-items: end;
   display: flex;
   gap: 10px;
   min-height: 160px;
 }
 
-.preview-chart span,
-.large-chart span {
+.preview-chart span {
   background: linear-gradient(180deg, var(--color-chart-start) 0%, var(--color-primary) 100%);
   border-radius: 6px 6px 0 0;
   flex: 1;
@@ -464,16 +462,17 @@
   margin-bottom: 24px;
 }
 
-.dashboard-nav span:not(.brand-mark) {
+.dashboard-nav-item {
   align-items: center;
   border-radius: 8px;
   color: var(--color-sidebar-muted);
   display: flex;
   gap: 10px;
   padding: 10px;
+  text-decoration: none;
 }
 
-.dashboard-nav span:not(.brand-mark) svg {
+.dashboard-nav-item svg {
   flex: 0 0 auto;
 }
 
@@ -530,11 +529,6 @@
 .flow-panel,
 .attention-panel {
   padding: 22px;
-}
-
-.large-chart {
-  margin-top: 20px;
-  min-height: 260px;
 }
 
 .attention-panel ul {
