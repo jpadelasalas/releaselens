@@ -123,6 +123,21 @@ class DemoSessionTest extends TestCase
         $this->assertStringNotContainsString('github_installation', $content);
     }
 
+    public function test_missing_demo_seed_returns_a_controlled_error(): void
+    {
+        $response = $this->postJson('/api/v1/demo/session');
+
+        $response
+            ->assertServiceUnavailable()
+            ->assertJsonPath('error.code', 'DEMO_NOT_READY')
+            ->assertJsonPath(
+                'error.message',
+                'The demo workspace has not been seeded yet.'
+            );
+
+        $response->assertSessionMissing('releaselens.context');
+    }
+
     private function registerDemoWriteProbeRoute(): void
     {
         Route::post('/api/v1/demo/write-probe', fn () => response()->json(['ok' => true]))

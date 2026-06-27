@@ -2,6 +2,7 @@
 
 namespace App\Modules\Analytics\Contracts;
 
+use App\Modules\Analytics\Enums\AnalyticsDateBasis;
 use Illuminate\Support\Collection;
 
 interface OrganizationAnalyticsRepositoryInterface
@@ -14,7 +15,11 @@ interface OrganizationAnalyticsRepositoryInterface
      * }  $filters
      * @return Collection<int, object>
      */
-    public function pullRequests(int $organizationId, array $filters): Collection;
+    public function pullRequests(
+        int $organizationId,
+        array $filters,
+        AnalyticsDateBasis $dateBasis = AnalyticsDateBasis::Created,
+    ): Collection;
 
     /**
      * @param  Collection<int, object>  $pullRequests

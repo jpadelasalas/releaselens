@@ -143,6 +143,75 @@ class PullRequestExplorerApiTest extends TestCase
         );
     }
 
+    public function test_event_drill_downs_use_the_same_date_basis_as_analytics(): void
+    {
+        $organizationId = $this->organization();
+        $repositoryId = $this->repository($organizationId);
+        $authorId = $this->githubUser('author');
+
+        $mergedPullRequestId = $this->pullRequest($repositoryId, $authorId, 20);
+        DB::table('pull_requests')
+            ->where('id', $mergedPullRequestId)
+            ->update([
+                'state' => 'closed',
+                'created_at_github' => '2026-05-01T00:00:00Z',
+                'closed_at' => '2026-06-10T00:00:00Z',
+                'merged_at' => '2026-06-10T00:00:00Z',
+            ]);
+
+        $closedPullRequestId = $this->pullRequest($repositoryId, $authorId, 21);
+        DB::table('pull_requests')
+            ->where('id', $closedPullRequestId)
+            ->update([
+                'state' => 'closed',
+                'created_at_github' => '2026-05-02T00:00:00Z',
+                'closed_at' => '2026-06-11T00:00:00Z',
+                'merged_at' => null,
+            ]);
+
+        $session = [
+            'releaselens.context' => [
+                'type' => 'demo',
+                'session_id' => 'demo-session-id',
+                'organization_id' => $organizationId,
+                'organization_slug' => 'northstar-engineering',
+            ],
+        ];
+        $basePath = "/api/v1/organizations/{$organizationId}";
+        $dateQuery = 'date_from=2026-06-01T00:00:00Z'.
+            '&date_to=2026-06-19T23:59:59Z';
+
+        $summary = $this->withSession($session)->getJson(
+            "{$basePath}/analytics/summary?{$dateQuery}"
+        );
+        $trends = $this->withSession($session)->getJson(
+            "{$basePath}/analytics/trends?{$dateQuery}"
+        );
+
+        $summary->assertOk();
+        $trends->assertOk();
+        $this->assertSame(1, $summary->json('data.metrics.closed_without_merge'));
+        $this->assertSame(1, $summary->json('data.metrics.median_merge_sample_size'));
+
+        $mergedWeek = collect(
+            $trends->json('data.series.opened_vs_merged_by_week')
+        )->firstWhere('week', '2026-06-08');
+
+        $this->assertNotNull($mergedWeek);
+        $this->assertSame(1, $mergedWeek['merged']);
+
+        $this->assertExplorerTotal(
+            $session,
+            "{$basePath}/pull-requests?{$dateQuery}&state=closed_without_merge",
+            1,
+        );
+        $this->assertExplorerTotal(
+            $session,
+            "{$basePath}/pull-requests?{$dateQuery}&event=merged&week=2026-06-08",
+            1,
+        );
+    }
+
     /**
      * @param  array<string, mixed>  $session
      */

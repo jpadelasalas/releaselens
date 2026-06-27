@@ -3,6 +3,7 @@
 namespace App\Modules\Analytics\Repositories;
 
 use App\Modules\Analytics\Contracts\OrganizationAnalyticsRepositoryInterface;
+use App\Modules\Analytics\Enums\AnalyticsDateBasis;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
@@ -17,8 +18,11 @@ class OrganizationAnalyticsRepository implements OrganizationAnalyticsRepository
      * }  $filters
      * @return Collection<int, object>
      */
-    public function pullRequests(int $organizationId, array $filters): Collection
-    {
+    public function pullRequests(
+        int $organizationId,
+        array $filters,
+        AnalyticsDateBasis $dateBasis = AnalyticsDateBasis::Created,
+    ): Collection {
         $query = DB::table('pull_requests')
             ->join('repositories', 'repositories.id', '=', 'pull_requests.repository_id')
             ->leftJoin('github_users as authors', 'authors.id', '=', 'pull_requests.author_github_user_id')
@@ -48,7 +52,7 @@ class OrganizationAnalyticsRepository implements OrganizationAnalyticsRepository
 
         if (isset($filters['date_from'])) {
             $query->where(
-                'pull_requests.created_at_github',
+                "pull_requests.{$dateBasis->value}",
                 '>=',
                 CarbonImmutable::parse($filters['date_from'])->utc(),
             );
@@ -56,7 +60,7 @@ class OrganizationAnalyticsRepository implements OrganizationAnalyticsRepository
 
         if (isset($filters['date_to'])) {
             $query->where(
-                'pull_requests.created_at_github',
+                "pull_requests.{$dateBasis->value}",
                 '<=',
                 CarbonImmutable::parse($filters['date_to'])->utc(),
             );

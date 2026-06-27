@@ -54,9 +54,9 @@ export function MetricGlossaryPage() {
         <section className="mb-6 border-l-4 border-[var(--color-primary)] bg-[var(--color-primary-soft)] p-4">
           <h2 className="text-lg text-[var(--color-heading)]">Read metrics in context</h2>
           <p className="mt-1 max-w-4xl text-[var(--color-muted)]">
-            The current V1 analytics first limit records by repository and pull-request
-            creation date. Metrics describe team workflow, not individual productivity,
-            and should never be used to rank developers.
+            Repository filters apply everywhere. Date filters use the event named by
+            each metric: creation, merge, or close. Metrics describe team workflow,
+            not individual productivity, and should never be used to rank developers.
           </p>
         </section>
 

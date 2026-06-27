@@ -44,15 +44,15 @@ export const metricDefinitions: MetricDefinition[] = [
     summary: 'Typical elapsed time from pull-request creation until merge.',
     formula:
       'Median of merged at minus pull request created at, measured in UTC hours.',
-    cohort: 'Merged pull requests whose creation timestamp is in the selected range.',
-    dateBasis: 'Pull request created timestamp; the duration ends at merged timestamp.',
+    cohort: 'Pull requests whose merge timestamp is in the selected range.',
+    dateBasis: 'Pull request merged timestamp; the duration begins at created timestamp.',
     exclusions: ['Open pull requests', 'Closed pull requests that were not merged'],
     sampleSize: 'The dashboard displays the merged pull-request count. Empty cohorts show N/A.',
     interpretation:
       'Lower values can indicate smoother delivery flow, while the median limits distortion from old outliers.',
     limitations: [
       'Draft time is included.',
-      'A pull request created before the selected range is excluded even if it merged inside the range.',
+      'Ready-for-review history is not stored, so the duration includes all time since creation.',
     ],
   },
   {
@@ -77,15 +77,15 @@ export const metricDefinitions: MetricDefinition[] = [
     category: 'Flow',
     summary: 'Pull requests that were closed without producing a merge.',
     formula: 'Count where state is closed and merged at is empty.',
-    cohort: 'Pull requests created in the selected range.',
-    dateBasis: 'Pull request created timestamp; current closed and merge state determine inclusion.',
+    cohort: 'Unmerged pull requests whose closed timestamp is in the selected range.',
+    dateBasis: 'Pull request closed timestamp.',
     exclusions: ['Open pull requests', 'Merged pull requests'],
     sampleSize: 'Displayed as an exact count; zero means no records match the active filters.',
     interpretation:
       'Useful context for abandoned or superseded work, but closing without merge is not inherently negative.',
     limitations: [
       'The reason for closing is not available.',
-      'A pull request created before the range is excluded even if it closed inside the range.',
+      'The count provides context but does not distinguish abandoned work from intentional closure.',
     ],
   },
   {
@@ -127,14 +127,14 @@ export const metricDefinitions: MetricDefinition[] = [
     category: 'Flow',
     summary: 'Weekly opened and merged activity shown as two comparable series.',
     formula: 'Count pull requests by creation week and merged pull requests by merge week.',
-    cohort: 'Pull requests created in the selected range; merged records are a subset of that cohort.',
+    cohort: 'Opened and merged events that occur in the selected range.',
     dateBasis: 'UTC week beginning Monday.',
     exclusions: ['Unmerged pull requests from the merged series'],
     sampleSize: 'Each pull request appears once in opened and, if merged, once in merged.',
     interpretation:
       'Sustained opened volume above merged volume can suggest accumulating work.',
     limitations: [
-      'A merge week may fall outside the selected creation range.',
+      'A pull request can open in one selected period and merge in another.',
       'Counts describe flow volume, not developer productivity.',
     ],
   },

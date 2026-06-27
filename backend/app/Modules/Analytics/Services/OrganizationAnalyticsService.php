@@ -3,6 +3,7 @@
 namespace App\Modules\Analytics\Services;
 
 use App\Modules\Analytics\Contracts\OrganizationAnalyticsRepositoryInterface;
+use App\Modules\Analytics\Enums\AnalyticsDateBasis;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 
@@ -23,7 +24,12 @@ class OrganizationAnalyticsService
      */
     public function dashboard(int $organizationId, array $filters = []): array
     {
-        $context = $this->context($organizationId, $filters);
+        $context = $this->context(
+            $organizationId,
+            $filters,
+            includeMerged: true,
+            includeClosed: true,
+        );
 
         return [
             'applied_filters' => $this->appliedFilters($filters),
@@ -48,7 +54,12 @@ class OrganizationAnalyticsService
      */
     public function summary(int $organizationId, array $filters = []): array
     {
-        $context = $this->context($organizationId, $filters);
+        $context = $this->context(
+            $organizationId,
+            $filters,
+            includeMerged: true,
+            includeClosed: true,
+        );
 
         return $this->withMeta(
             $organizationId,
@@ -63,7 +74,12 @@ class OrganizationAnalyticsService
      */
     public function trends(int $organizationId, array $filters = []): array
     {
-        $context = $this->context($organizationId, $filters);
+        $context = $this->context(
+            $organizationId,
+            $filters,
+            includeReviews: false,
+            includeMerged: true,
+        );
 
         return $this->withMeta(
             $organizationId,
@@ -78,7 +94,11 @@ class OrganizationAnalyticsService
      */
     public function distributions(int $organizationId, array $filters = []): array
     {
-        $context = $this->context($organizationId, $filters);
+        $context = $this->context(
+            $organizationId,
+            $filters,
+            includeReviews: false,
+        );
 
         return $this->withMeta(
             $organizationId,
@@ -106,17 +126,44 @@ class OrganizationAnalyticsService
      * @param  array<string, mixed>  $filters
      * @return array{
      *     pull_requests: Collection<int, object>,
+     *     merged_pull_requests: Collection<int, object>,
+     *     closed_pull_requests: Collection<int, object>,
      *     first_reviews: array<int, CarbonImmutable>,
      *     now: CarbonImmutable
      * }
      */
-    private function context(int $organizationId, array $filters): array
-    {
-        $pullRequests = $this->repository->pullRequests($organizationId, $filters);
+    private function context(
+        int $organizationId,
+        array $filters,
+        bool $includeReviews = true,
+        bool $includeMerged = false,
+        bool $includeClosed = false,
+    ): array {
+        $pullRequests = $this->repository->pullRequests(
+            $organizationId,
+            $filters,
+            AnalyticsDateBasis::Created,
+        );
 
         return [
             'pull_requests' => $pullRequests,
-            'first_reviews' => $this->firstQualifyingReviews($pullRequests),
+            'merged_pull_requests' => $includeMerged
+                ? $this->repository->pullRequests(
+                    $organizationId,
+                    $filters,
+                    AnalyticsDateBasis::Merged,
+                )
+                : collect(),
+            'closed_pull_requests' => $includeClosed
+                ? $this->repository->pullRequests(
+                    $organizationId,
+                    $filters,
+                    AnalyticsDateBasis::Closed,
+                )
+                : collect(),
+            'first_reviews' => $includeReviews
+                ? $this->firstQualifyingReviews($pullRequests)
+                : [],
             'now' => CarbonImmutable::parse(
                 $filters['now'] ?? config('releaselens.demo.anchor_date')
             )->utc(),
@@ -188,6 +235,8 @@ class OrganizationAnalyticsService
     /**
      * @param  array{
      *     pull_requests: Collection<int, object>,
+     *     merged_pull_requests: Collection<int, object>,
+     *     closed_pull_requests: Collection<int, object>,
      *     first_reviews: array<int, CarbonImmutable>,
      *     now: CarbonImmutable
      * }  $context
@@ -196,6 +245,8 @@ class OrganizationAnalyticsService
     private function summaryFromContext(array $context): array
     {
         $pullRequests = $context['pull_requests'];
+        $mergedPullRequests = $context['merged_pull_requests'];
+        $closedPullRequests = $context['closed_pull_requests'];
         $firstReviews = $context['first_reviews'];
 
         $firstReviewDurations = $pullRequests
@@ -208,7 +259,7 @@ class OrganizationAnalyticsService
             ->values()
             ->all();
 
-        $mergeDurations = $pullRequests
+        $mergeDurations = $mergedPullRequests
             ->filter(fn (object $pullRequest): bool => $pullRequest->merged_at !== null)
             ->map(fn (object $pullRequest): int => $this->hoursBetween(
                 $pullRequest->created_at_github,
@@ -228,7 +279,7 @@ class OrganizationAnalyticsService
                     $firstReviews,
                 ))
                 ->count(),
-            'closed_without_merge' => $pullRequests
+            'closed_without_merge' => $closedPullRequests
                 ->filter(fn (object $pullRequest): bool => $pullRequest->state === 'closed' &&
                     $pullRequest->merged_at === null)
                 ->count(),
@@ -237,7 +288,10 @@ class OrganizationAnalyticsService
     }
 
     /**
-     * @param  array{pull_requests: Collection<int, object>}  $context
+     * @param  array{
+     *     pull_requests: Collection<int, object>,
+     *     merged_pull_requests: Collection<int, object>
+     * }  $context
      * @return array<string, mixed>
      */
     private function trendsFromContext(array $context): array
@@ -245,6 +299,7 @@ class OrganizationAnalyticsService
         return [
             'opened_vs_merged_by_week' => $this->openedVersusMergedByWeek(
                 $context['pull_requests'],
+                $context['merged_pull_requests'],
             ),
         ];
     }
@@ -318,14 +373,17 @@ class OrganizationAnalyticsService
     }
 
     /**
-     * @param  Collection<int, object>  $pullRequests
+     * @param  Collection<int, object>  $openedPullRequests
+     * @param  Collection<int, object>  $mergedPullRequests
      * @return array<int, array{week: string, opened: int, merged: int}>
      */
-    private function openedVersusMergedByWeek(Collection $pullRequests): array
-    {
+    private function openedVersusMergedByWeek(
+        Collection $openedPullRequests,
+        Collection $mergedPullRequests,
+    ): array {
         $weeks = [];
 
-        foreach ($pullRequests as $pullRequest) {
+        foreach ($openedPullRequests as $pullRequest) {
             $openedWeek = $this->weekKey($pullRequest->created_at_github);
             $weeks[$openedWeek] ??= [
                 'week' => $openedWeek,
@@ -333,16 +391,16 @@ class OrganizationAnalyticsService
                 'merged' => 0,
             ];
             $weeks[$openedWeek]['opened']++;
+        }
 
-            if ($pullRequest->merged_at !== null) {
-                $mergedWeek = $this->weekKey($pullRequest->merged_at);
-                $weeks[$mergedWeek] ??= [
-                    'week' => $mergedWeek,
-                    'opened' => 0,
-                    'merged' => 0,
-                ];
-                $weeks[$mergedWeek]['merged']++;
-            }
+        foreach ($mergedPullRequests->whereNotNull('merged_at') as $pullRequest) {
+            $mergedWeek = $this->weekKey($pullRequest->merged_at);
+            $weeks[$mergedWeek] ??= [
+                'week' => $mergedWeek,
+                'opened' => 0,
+                'merged' => 0,
+            ];
+            $weeks[$mergedWeek]['merged']++;
         }
 
         ksort($weeks);

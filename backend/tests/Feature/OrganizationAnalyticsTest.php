@@ -191,6 +191,77 @@ class OrganizationAnalyticsTest extends TestCase
         );
     }
 
+    public function test_event_metrics_use_merge_and_close_timestamps(): void
+    {
+        $organizationId = $this->organization();
+        $repositoryId = $this->repository($organizationId);
+        $authorId = $this->githubUser('author');
+
+        $this->pullRequest(
+            repositoryId: $repositoryId,
+            authorId: $authorId,
+            number: 20,
+            createdAt: '2026-05-01T00:00:00Z',
+            state: 'closed',
+            closedAt: '2026-06-10T00:00:00Z',
+            mergedAt: '2026-06-10T00:00:00Z',
+        );
+        $this->pullRequest(
+            repositoryId: $repositoryId,
+            authorId: $authorId,
+            number: 21,
+            createdAt: '2026-06-05T00:00:00Z',
+            state: 'closed',
+            closedAt: '2026-06-07T00:00:00Z',
+            mergedAt: '2026-06-07T00:00:00Z',
+        );
+        $this->pullRequest(
+            repositoryId: $repositoryId,
+            authorId: $authorId,
+            number: 22,
+            createdAt: '2026-06-06T00:00:00Z',
+            state: 'closed',
+            closedAt: '2026-07-01T00:00:00Z',
+            mergedAt: '2026-07-01T00:00:00Z',
+        );
+        $this->pullRequest(
+            repositoryId: $repositoryId,
+            authorId: $authorId,
+            number: 23,
+            createdAt: '2026-05-02T00:00:00Z',
+            state: 'closed',
+            closedAt: '2026-06-12T00:00:00Z',
+        );
+        $this->pullRequest(
+            repositoryId: $repositoryId,
+            authorId: $authorId,
+            number: 24,
+            createdAt: '2026-06-07T00:00:00Z',
+            state: 'closed',
+            closedAt: '2026-07-02T00:00:00Z',
+        );
+
+        $analytics = app(OrganizationAnalyticsService::class)->dashboard(
+            $organizationId,
+            [
+                'date_from' => '2026-06-01T00:00:00Z',
+                'date_to' => '2026-06-19T23:59:59Z',
+                'now' => '2026-06-19T12:00:00Z',
+            ],
+        );
+
+        $this->assertSame(504.0, $analytics['summary']['median_merge_hours']);
+        $this->assertSame(2, $analytics['summary']['median_merge_sample_size']);
+        $this->assertSame(1, $analytics['summary']['closed_without_merge']);
+
+        $series = collect($analytics['trends']['opened_vs_merged_by_week'])
+            ->keyBy('week');
+
+        $this->assertSame(3, $series->get('2026-06-01')['opened']);
+        $this->assertSame(1, $series->get('2026-06-01')['merged']);
+        $this->assertSame(1, $series->get('2026-06-08')['merged']);
+    }
+
     private function organization(): int
     {
         return (int) DB::table('organizations')->insertGetId([

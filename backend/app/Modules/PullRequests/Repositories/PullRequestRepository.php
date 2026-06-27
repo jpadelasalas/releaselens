@@ -40,9 +40,11 @@ class PullRequestRepository implements PullRequestRepositoryInterface
             $query->whereIn('pull_requests.repository_id', $repositoryIds);
         }
 
+        $dateColumn = $this->dateColumn($filters);
+
         if (isset($filters['date_from'])) {
             $query->where(
-                'pull_requests.created_at_github',
+                $dateColumn,
                 '>=',
                 CarbonImmutable::parse($filters['date_from'])->utc(),
             );
@@ -50,7 +52,7 @@ class PullRequestRepository implements PullRequestRepositoryInterface
 
         if (isset($filters['date_to'])) {
             $query->where(
-                'pull_requests.created_at_github',
+                $dateColumn,
                 '<=',
                 CarbonImmutable::parse($filters['date_to'])->utc(),
             );
@@ -90,6 +92,22 @@ class PullRequestRepository implements PullRequestRepositoryInterface
             ->orderBy('pull_requests.created_at_github')
             ->orderBy('pull_requests.id')
             ->paginate($perPage);
+    }
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    private function dateColumn(array $filters): string
+    {
+        if (($filters['event'] ?? null) === 'merged') {
+            return 'pull_requests.merged_at';
+        }
+
+        if (($filters['state'] ?? null) === 'closed_without_merge') {
+            return 'pull_requests.closed_at';
+        }
+
+        return 'pull_requests.created_at_github';
     }
 
     public function qualifyingReviewPullRequestIds(array $pullRequestIds): array
