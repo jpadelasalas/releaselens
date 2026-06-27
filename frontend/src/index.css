@@ -29,6 +29,7 @@
   --color-window-bar: #8fa4a1;
   --color-warning-bg: #fff8e6;
   --color-warning-border: #e2c779;
+  --color-danger: #b42318;
   --color-chart-start: #21aaa2;
   --color-chart-end: #087f7a;
   --color-focus: rgba(8, 127, 122, 0.35);
@@ -72,6 +73,7 @@
   --color-window-bar: #63837e;
   --color-warning-bg: #332815;
   --color-warning-border: #80642a;
+  --color-danger: #f97066;
   --color-chart-start: #62ddd5;
   --color-chart-end: #22a59d;
   --color-focus: rgba(53, 197, 188, 0.42);
@@ -141,6 +143,48 @@ a:focus-visible {
 img,
 svg {
   max-width: 100%;
+}
+
+.confirmation-dialog {
+  opacity: 0;
+  transform: translateY(12px) scale(0.97);
+  transition:
+    opacity 180ms ease,
+    transform 180ms ease,
+    overlay 180ms allow-discrete,
+    display 180ms allow-discrete;
+}
+
+.confirmation-dialog[open] {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+}
+
+.confirmation-dialog::backdrop {
+  background: rgb(0 0 0 / 0%);
+  backdrop-filter: blur(0);
+  transition:
+    background-color 180ms ease,
+    backdrop-filter 180ms ease,
+    overlay 180ms allow-discrete,
+    display 180ms allow-discrete;
+}
+
+.confirmation-dialog[open]::backdrop {
+  background: rgb(0 0 0 / 55%);
+  backdrop-filter: blur(2px);
+}
+
+@starting-style {
+  .confirmation-dialog[open] {
+    opacity: 0;
+    transform: translateY(12px) scale(0.97);
+  }
+
+  .confirmation-dialog[open]::backdrop {
+    background: rgb(0 0 0 / 0%);
+    backdrop-filter: blur(0);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

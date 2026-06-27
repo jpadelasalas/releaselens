@@ -7,12 +7,16 @@ import {
   type RegisterValues,
 } from '../../features/auth/authSchemas'
 import { useAuthFeatureContext } from '../../features/auth/useAuthFeatureContext'
+import { useAppSelector } from '../../app/store/hooks'
 import { AuthPageLayout } from './AuthPageLayout'
 
 export function RegisterPage() {
   const navigate = useNavigate()
   const { register: createAccount, clearError, error, isSubmitting } =
     useAuthFeatureContext()
+  const isCheckingSession = useAppSelector(
+    (state) => state.auth.status === 'checking',
+  )
   const {
     register,
     handleSubmit,
@@ -75,8 +79,12 @@ export function RegisterPage() {
           </div>
         )}
 
-        <button className="primary-action justify-center" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Creating account...' : 'Create Account'}
+        <button className="primary-action justify-center" type="submit" disabled={isSubmitting || isCheckingSession}>
+          {isCheckingSession
+            ? 'Checking session...'
+            : isSubmitting
+              ? 'Creating account...'
+              : 'Create Account'}
         </button>
         <p className="text-center text-sm text-[var(--color-muted)]">
           Already registered?{' '}

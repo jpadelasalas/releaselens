@@ -71,6 +71,84 @@ class OrganizationWorkspaceRepository implements OrganizationWorkspaceRepository
             ->first();
     }
 
+    public function membersForOrganization(int $organizationId): Collection
+    {
+        return $this->membersQuery()
+            ->where('organization_members.organization_id', $organizationId)
+            ->orderBy('users.name')
+            ->get();
+    }
+
+    public function memberById(int $organizationId, int $membershipId): ?object
+    {
+        return $this->membersQuery()
+            ->where('organization_members.organization_id', $organizationId)
+            ->where('organization_members.id', $membershipId)
+            ->first();
+    }
+
+    public function addMember(
+        int $organizationId,
+        int $userId,
+        string $role,
+    ): object {
+        $now = now();
+        $membershipId = (int) DB::table('organization_members')->insertGetId([
+            'organization_id' => $organizationId,
+            'user_id' => $userId,
+            'role' => $role,
+            'joined_at' => $now,
+            'created_at' => $now,
+            'updated_at' => $now,
+        ]);
+
+        return $this->memberById($organizationId, $membershipId);
+    }
+
+    public function updateMemberRole(int $membershipId, string $role): void
+    {
+        DB::table('organization_members')
+            ->where('id', $membershipId)
+            ->update(['role' => $role, 'updated_at' => now()]);
+    }
+
+    public function removeMember(int $membershipId): void
+    {
+        DB::table('organization_members')->where('id', $membershipId)->delete();
+    }
+
+    public function ownerCount(int $organizationId): int
+    {
+        return DB::table('organization_members')
+            ->where('organization_id', $organizationId)
+            ->where('role', 'owner')
+            ->count();
+    }
+
+    public function recordAuditEvent(
+        int $organizationId,
+        int $actorUserId,
+        string $eventType,
+        int $membershipId,
+        array $metadata,
+        ?string $ipAddress,
+        ?string $userAgent,
+    ): void {
+        DB::table('audit_logs')->insert([
+            'organization_id' => $organizationId,
+            'actor_user_id' => $actorUserId,
+            'event_type' => $eventType,
+            'auditable_type' => 'organization_member',
+            'auditable_id' => $membershipId,
+            'metadata' => json_encode($metadata, JSON_THROW_ON_ERROR),
+            'ip_address' => $ipAddress,
+            'user_agent' => $userAgent,
+            'occurred_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+    }
+
     private function membershipQuery(): Builder
     {
         return DB::table('organization_members')
@@ -87,6 +165,22 @@ class OrganizationWorkspaceRepository implements OrganizationWorkspaceRepository
                 'organizations.slug',
                 'organizations.timezone',
                 'organization_members.role',
+            ]);
+    }
+
+    private function membersQuery(): Builder
+    {
+        return DB::table('organization_members')
+            ->join('users', 'users.id', '=', 'organization_members.user_id')
+            ->select([
+                'organization_members.id as membership_id',
+                'organization_members.organization_id',
+                'organization_members.role',
+                'organization_members.joined_at',
+                'users.id as user_id',
+                'users.name',
+                'users.email',
+                'users.timezone',
             ]);
     }
 }

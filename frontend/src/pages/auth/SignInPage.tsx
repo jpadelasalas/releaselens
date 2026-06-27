@@ -4,12 +4,16 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 
 import { signInSchema, type SignInValues } from '../../features/auth/authSchemas'
 import { useAuthFeatureContext } from '../../features/auth/useAuthFeatureContext'
+import { useAppSelector } from '../../app/store/hooks'
 import { AuthPageLayout } from './AuthPageLayout'
 
 export function SignInPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const { signIn, clearError, error, isSubmitting } = useAuthFeatureContext()
+  const isCheckingSession = useAppSelector(
+    (state) => state.auth.status === 'checking',
+  )
   const {
     register,
     handleSubmit,
@@ -66,8 +70,12 @@ export function SignInPage() {
           </div>
         )}
 
-        <button className="primary-action justify-center" type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Signing in...' : 'Sign In'}
+        <button className="primary-action justify-center" type="submit" disabled={isSubmitting || isCheckingSession}>
+          {isCheckingSession
+            ? 'Checking session...'
+            : isSubmitting
+              ? 'Signing in...'
+              : 'Sign In'}
         </button>
         <p className="text-center text-sm text-[var(--color-muted)]">
           New to ReleaseLens?{' '}

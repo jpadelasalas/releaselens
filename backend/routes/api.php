@@ -3,13 +3,21 @@
 use App\Http\Controllers\Api\V1\DemoSessionController;
 use App\Http\Middleware\EnsureDemoSessionIsReadOnly;
 use App\Modules\Analytics\Http\Controllers\OrganizationAnalyticsController;
+use App\Modules\GitHub\Http\Controllers\DisconnectGitHubConnectionController;
+use App\Modules\GitHub\Http\Controllers\GitHubConnectionCallbackController;
+use App\Modules\GitHub\Http\Controllers\ShowGitHubConnectionController;
+use App\Modules\GitHub\Http\Controllers\StartGitHubConnectionController;
 use App\Modules\Identity\Http\Controllers\CurrentUserController;
 use App\Modules\Identity\Http\Controllers\LoginController;
 use App\Modules\Identity\Http\Controllers\LogoutController;
 use App\Modules\Identity\Http\Controllers\RegisterController;
 use App\Modules\Organizations\Http\Controllers\ActivateOrganizationController;
+use App\Modules\Organizations\Http\Controllers\AddOrganizationMemberController;
 use App\Modules\Organizations\Http\Controllers\CreateOrganizationController;
+use App\Modules\Organizations\Http\Controllers\ListOrganizationMembersController;
 use App\Modules\Organizations\Http\Controllers\ListOrganizationsController;
+use App\Modules\Organizations\Http\Controllers\RemoveOrganizationMemberController;
+use App\Modules\Organizations\Http\Controllers\UpdateOrganizationMemberController;
 use App\Modules\PullRequests\Http\Controllers\PullRequestExplorerController;
 use App\Modules\Repositories\Http\Controllers\OrganizationRepositoryController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -37,6 +45,9 @@ Route::prefix('v1')
             Route::get('/me', CurrentUserController::class)
                 ->name('auth.me');
 
+            Route::get('/github/callback', GitHubConnectionCallbackController::class)
+                ->name('github.callback');
+
             Route::get('/organizations', ListOrganizationsController::class)
                 ->name('organizations.index');
             Route::post('/organizations', CreateOrganizationController::class)
@@ -47,6 +58,38 @@ Route::prefix('v1')
             )
                 ->whereNumber('org')
                 ->name('organizations.activate');
+
+            Route::prefix('/organizations/{org}/members')
+                ->whereNumber('org')
+                ->group(function (): void {
+                    Route::get('/', ListOrganizationMembersController::class)
+                        ->name('organization-members.index');
+                    Route::post('/', AddOrganizationMemberController::class)
+                        ->name('organization-members.store');
+                    Route::patch(
+                        '/{member}',
+                        UpdateOrganizationMemberController::class,
+                    )
+                        ->whereNumber('member')
+                        ->name('organization-members.update');
+                    Route::delete(
+                        '/{member}',
+                        RemoveOrganizationMemberController::class,
+                    )
+                        ->whereNumber('member')
+                        ->name('organization-members.destroy');
+                });
+
+            Route::prefix('/organizations/{org}/github')
+                ->whereNumber('org')
+                ->group(function (): void {
+                    Route::post('/connect', StartGitHubConnectionController::class)
+                        ->name('github.connect');
+                    Route::get('/connection', ShowGitHubConnectionController::class)
+                        ->name('github.connection.show');
+                    Route::delete('/connection', DisconnectGitHubConnectionController::class)
+                        ->name('github.connection.destroy');
+                });
         });
     });
 

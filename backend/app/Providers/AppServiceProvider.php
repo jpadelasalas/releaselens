@@ -4,6 +4,10 @@ namespace App\Providers;
 
 use App\Modules\Analytics\Contracts\OrganizationAnalyticsRepositoryInterface;
 use App\Modules\Analytics\Repositories\OrganizationAnalyticsRepository;
+use App\Modules\GitHub\Clients\GitHubAppClient;
+use App\Modules\GitHub\Contracts\GitHubAppClientInterface;
+use App\Modules\GitHub\Contracts\GitHubConnectionRepositoryInterface;
+use App\Modules\GitHub\Repositories\GitHubConnectionRepository;
 use App\Modules\Identity\Contracts\UserRepositoryInterface;
 use App\Modules\Identity\Repositories\UserRepository;
 use App\Modules\Organizations\Contracts\OrganizationWorkspaceRepositoryInterface;
@@ -24,6 +28,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(
+            GitHubAppClientInterface::class,
+            GitHubAppClient::class,
+        );
+
+        $this->app->bind(
+            GitHubConnectionRepositoryInterface::class,
+            GitHubConnectionRepository::class,
+        );
+
         $this->app->bind(
             OrganizationAnalyticsRepositoryInterface::class,
             OrganizationAnalyticsRepository::class,

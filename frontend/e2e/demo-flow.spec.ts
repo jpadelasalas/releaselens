@@ -35,8 +35,23 @@ test('visitor enters demo and opens waiting-for-review records', async ({ page }
 })
 
 test('visitor registers, enters a protected workspace, and signs out', async ({
+  browser,
   page,
 }) => {
+  test.setTimeout(60_000)
+  const memberPage = await browser.newPage()
+  await memberPage.goto('/register')
+  await memberPage.getByLabel('Name').fill('Sam Lee')
+  await memberPage.getByLabel('Email address').fill('sam@example.com')
+  await memberPage
+    .getByLabel('Password', { exact: true })
+    .fill('release-lens-2026')
+  await memberPage.getByLabel('Confirm password').fill('release-lens-2026')
+  await memberPage.getByRole('button', { name: 'Create Account' }).click()
+  await expect(memberPage).toHaveURL(/\/app$/)
+  await memberPage.getByRole('button', { name: 'Sign Out' }).click()
+  await memberPage.close()
+
   await page.goto('/register')
 
   await page.getByLabel('Name').fill('Alex Rivera')
@@ -77,6 +92,35 @@ test('visitor registers, enters a protected workspace, and signs out', async ({
   await expect(
     page.getByRole('heading', { level: 1, name: 'Platform Team' }),
   ).toBeVisible()
+
+  await page.getByLabel('Registered user email').fill('sam@example.com')
+  await page.getByRole('button', { name: 'Add Member' }).click()
+
+  const samRow = page.getByRole('row').filter({ hasText: 'sam@example.com' })
+  await expect(samRow).toBeVisible()
+  await samRow.getByLabel('Role for Sam Lee').selectOption('manager')
+  await expect(
+    page.getByRole('heading', { name: 'Change member role?' }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Change Role' }).click()
+  await expect(samRow.getByLabel('Role for Sam Lee')).toHaveValue('manager')
+
+  const ownerRow = page.getByRole('row').filter({ hasText: 'alex@example.com' })
+  await ownerRow.getByLabel('Role for Alex Rivera').selectOption('manager')
+  await expect(
+    page.getByRole('heading', { name: 'Change member role?' }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Change Role' }).click()
+  await expect(page.getByRole('alert')).toContainText(
+    'Promote another Owner before demoting or removing the final Owner.',
+  )
+
+  await samRow.getByRole('button', { name: 'Remove' }).click()
+  await expect(
+    page.getByRole('heading', { name: 'Remove workspace member?' }),
+  ).toBeVisible()
+  await page.getByRole('button', { name: 'Remove Member' }).click()
+  await expect(samRow).not.toBeVisible()
 
   await page.getByRole('button', { name: 'Sign Out' }).click()
 

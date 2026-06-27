@@ -92,6 +92,128 @@ class OrganizationWorkspaceApiTest extends TestCase
         ])->assertUnauthorized();
     }
 
+    public function test_owner_can_add_change_and_remove_members_with_audit_events(): void
+    {
+        $owner = $this->user('owner@example.com');
+        $memberUser = $this->user('member@example.com');
+        $organizationId = $this->organization('Platform Team', 'platform-team');
+        $this->membership($organizationId, $owner->id, 'owner');
+
+        $added = $this->actingAs($owner)->postJson(
+            "/api/v1/organizations/{$organizationId}/members",
+            ['email' => 'MEMBER@EXAMPLE.COM', 'role' => 'viewer'],
+        );
+
+        $added
+            ->assertCreated()
+            ->assertJsonPath('data.user.id', $memberUser->id)
+            ->assertJsonPath('data.role', 'viewer');
+        $membershipId = (int) $added->json('data.id');
+
+        $this->actingAs($owner)
+            ->patchJson(
+                "/api/v1/organizations/{$organizationId}/members/{$membershipId}",
+                ['role' => 'manager'],
+            )
+            ->assertOk()
+            ->assertJsonPath('data.role', 'manager');
+
+        $this->actingAs($owner)
+            ->getJson("/api/v1/organizations/{$organizationId}/members")
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $this->actingAs($owner)
+            ->deleteJson(
+                "/api/v1/organizations/{$organizationId}/members/{$membershipId}"
+            )
+            ->assertOk();
+
+        $this->assertDatabaseMissing('organization_members', [
+            'id' => $membershipId,
+        ]);
+        $this->assertDatabaseCount('audit_logs', 3);
+        $this->assertDatabaseHas('audit_logs', [
+            'organization_id' => $organizationId,
+            'event_type' => 'member.removed',
+        ]);
+    }
+
+    public function test_manager_viewer_and_non_member_cannot_manage_members(): void
+    {
+        $manager = $this->user('manager@example.com');
+        $viewer = $this->user('viewer@example.com');
+        $outsider = $this->user('outsider@example.com');
+        $organizationId = $this->organization('Platform Team', 'platform-team');
+        $this->membership($organizationId, $manager->id, 'manager');
+        $this->membership($organizationId, $viewer->id, 'viewer');
+
+        $this->actingAs($manager)
+            ->getJson("/api/v1/organizations/{$organizationId}/members")
+            ->assertForbidden();
+        $this->actingAs($viewer)
+            ->postJson(
+                "/api/v1/organizations/{$organizationId}/members",
+                ['email' => 'outsider@example.com', 'role' => 'viewer'],
+            )
+            ->assertForbidden();
+        $this->actingAs($outsider)
+            ->getJson("/api/v1/organizations/{$organizationId}/members")
+            ->assertNotFound();
+    }
+
+    public function test_final_owner_cannot_be_demoted_or_removed(): void
+    {
+        $owner = $this->user('owner@example.com');
+        $organizationId = $this->organization('Platform Team', 'platform-team');
+        $membershipId = $this->membership(
+            $organizationId,
+            $owner->id,
+            'owner',
+        );
+
+        $this->actingAs($owner)
+            ->patchJson(
+                "/api/v1/organizations/{$organizationId}/members/{$membershipId}",
+                ['role' => 'manager'],
+            )
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'LAST_OWNER_REQUIRED');
+
+        $this->actingAs($owner)
+            ->deleteJson(
+                "/api/v1/organizations/{$organizationId}/members/{$membershipId}"
+            )
+            ->assertConflict()
+            ->assertJsonPath('error.code', 'LAST_OWNER_REQUIRED');
+
+        $this->assertDatabaseHas('organization_members', [
+            'id' => $membershipId,
+            'role' => 'owner',
+        ]);
+    }
+
+    public function test_owner_can_be_demoted_after_promoting_another_owner(): void
+    {
+        $firstOwner = $this->user('first@example.com');
+        $secondOwner = $this->user('second@example.com');
+        $organizationId = $this->organization('Platform Team', 'platform-team');
+        $firstMembershipId = $this->membership(
+            $organizationId,
+            $firstOwner->id,
+            'owner',
+        );
+        $this->membership($organizationId, $secondOwner->id, 'owner');
+
+        $this->actingAs($firstOwner)
+            ->patchJson(
+                "/api/v1/organizations/{$organizationId}/members/{$firstMembershipId}",
+                ['role' => 'manager'],
+            )
+            ->assertOk()
+            ->assertJsonPath('data.role', 'manager');
+    }
+
     private function user(string $email): User
     {
         return User::query()->create([
@@ -119,8 +241,8 @@ class OrganizationWorkspaceApiTest extends TestCase
         int $organizationId,
         int $userId,
         string $role,
-    ): void {
-        DB::table('organization_members')->insert([
+    ): int {
+        return (int) DB::table('organization_members')->insertGetId([
             'organization_id' => $organizationId,
             'user_id' => $userId,
             'role' => $role,

@@ -18,7 +18,17 @@ import { SignInPage } from './SignInPage'
 describe('SignInPage', () => {
   it('creates a session and enters the connected workspace', async () => {
     const user = userEvent.setup()
-    const store = configureStore({ reducer: { auth: authReducer } })
+    const store = configureStore({
+      reducer: { auth: authReducer },
+      preloadedState: {
+        auth: {
+          user: null,
+          memberships: [],
+          activeOrganizationId: null,
+          status: 'anonymous' as const,
+        },
+      },
+    })
     const queryClient = new QueryClient({
       defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
     })

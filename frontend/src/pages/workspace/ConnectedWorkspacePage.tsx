@@ -12,6 +12,8 @@ import {
   type CreateOrganizationValues,
 } from '../../features/organizations/organizationSchemas'
 import { useOrganizationFeatureContext } from '../../features/organizations/useOrganizationFeatureContext'
+import { WorkspaceMembersPanel } from './components/WorkspaceMembersPanel'
+import { GitHubConnectionPanel } from './components/GitHubConnectionPanel'
 
 export function ConnectedWorkspacePage() {
   const navigate = useNavigate()
@@ -52,6 +54,16 @@ export function ConnectedWorkspacePage() {
   async function handleSignOut() {
     await signOut()
     navigate('/sign-in', { replace: true })
+  }
+
+  async function handleActivateWorkspace(organizationId: number) {
+    clearError()
+
+    try {
+      await activateWorkspace(organizationId)
+    } catch {
+      // Mutation state exposes the controlled API error.
+    }
   }
 
   return (
@@ -169,7 +181,9 @@ export function ConnectedWorkspacePage() {
                         type="button"
                         disabled={isActive || isSubmitting}
                         onClick={() =>
-                          void activateWorkspace(membership.organization.id)
+                          void handleActivateWorkspace(
+                            membership.organization.id,
+                          )
                         }
                       >
                         {isActive ? 'Active workspace' : 'Open workspace'}
@@ -181,6 +195,8 @@ export function ConnectedWorkspacePage() {
             )}
           </section>
         </div>
+        {activeMembership && <GitHubConnectionPanel />}
+        <WorkspaceMembersPanel />
       </section>
     </main>
   )
