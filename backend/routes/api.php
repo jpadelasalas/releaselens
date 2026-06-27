@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\DemoSessionController;
 use App\Http\Middleware\EnsureDemoSessionIsReadOnly;
 use App\Modules\Analytics\Http\Controllers\OrganizationAnalyticsController;
+use App\Modules\Repositories\Http\Controllers\OrganizationRepositoryController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -31,4 +32,11 @@ Route::prefix('v1')
                 Route::get('/distributions', 'distributions')->name('analytics.distributions');
                 Route::get('/attention', 'attention')->name('analytics.attention');
             });
+
+        Route::get(
+            '/organizations/{org}/repositories',
+            [OrganizationRepositoryController::class, 'index'],
+        )
+            ->whereNumber('org')
+            ->name('repositories.index');
     });

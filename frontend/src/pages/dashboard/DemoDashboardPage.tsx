@@ -1,17 +1,25 @@
 import { Link } from 'react-router-dom'
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import { ThemeToggle } from '../../components/theme/ThemeToggle'
-import {
-  type AnalyticsAttentionRecord,
-} from '../../features/analytics/analyticsApi'
+import type { AnalyticsAttentionRecord } from '../../features/analytics/analyticsApi'
 import { useDashboardAnalytics } from '../../features/analytics/useDashboardAnalytics'
+import { useDashboardFilters } from '../../features/analytics/useDashboardFilters'
+import { useOrganizationRepositories } from '../../features/repositories/useOrganizationRepositories'
+import { DashboardFilters } from './components/DashboardFilters'
 import { DashboardNav } from './components/DashboardNav'
+import { DistributionPanel } from './components/DistributionPanel'
 import { MetricCard } from './components/MetricCard'
 
 export function DemoDashboardPage() {
   const { scope } = useScopeContext()
   const organizationId = scope.kind === 'demo' ? scope.organization.id : null
-  const dashboardQuery = useDashboardAnalytics(organizationId)
+  const anchorDate = scope.kind === 'demo' ? scope.demo.anchor_date : null
+  const dashboardFilters = useDashboardFilters(anchorDate)
+  const dashboardQuery = useDashboardAnalytics(
+    organizationId,
+    dashboardFilters.filters,
+  )
+  const repositoriesQuery = useOrganizationRepositories(organizationId)
 
   if (scope.kind !== 'demo') {
     return (
@@ -66,6 +74,14 @@ export function DemoDashboardPage() {
           </div>
         </header>
 
+        <DashboardFilters
+          repositories={repositoriesQuery.data ?? []}
+          initialFilters={dashboardFilters.defaults}
+          disabled={repositoriesQuery.isLoading || dashboardQuery.isFetching}
+          onApply={dashboardFilters.applyFilters}
+          onClear={dashboardFilters.clearFilters}
+        />
+
         {dashboardQuery.isError ? (
           <section className="retry-panel dashboard-error" role="alert">
             <strong>Dashboard analytics are unavailable.</strong>
@@ -77,7 +93,9 @@ export function DemoDashboardPage() {
         ) : (
           <>
             <section className="dashboard-meta" aria-label="Dashboard freshness">
-              <span>{repositoryCount || '...'} repositories selected</span>
+              <span>
+                {dashboardQuery.isSuccess ? repositoryCount : '...'} repositories selected
+              </span>
               <span>{dashboardQuery.isSuccess ? freshnessLabel : 'Loading analytics...'}</span>
             </section>
 
@@ -119,6 +137,22 @@ export function DemoDashboardPage() {
                 label="Large PRs"
                 value={largePrBucket ? String(largePrBucket.count) : '...'}
                 detail="Pull requests above 500 changed lines."
+              />
+            </section>
+
+            <section
+              className="mt-[18px] grid gap-[18px] lg:grid-cols-2"
+              aria-label="Pull request distributions"
+            >
+              <DistributionPanel
+                title="Open PR age"
+                description="Current open pull requests grouped by age."
+                buckets={analytics?.distributions.buckets.open_pr_age ?? []}
+              />
+              <DistributionPanel
+                title="PR size"
+                description="Pull requests grouped by additions plus deletions."
+                buckets={analytics?.distributions.buckets.pr_size ?? []}
               />
             </section>
 

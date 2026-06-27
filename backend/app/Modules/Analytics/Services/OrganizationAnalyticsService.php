@@ -117,7 +117,9 @@ class OrganizationAnalyticsService
         return [
             'pull_requests' => $pullRequests,
             'first_reviews' => $this->firstQualifyingReviews($pullRequests),
-            'now' => CarbonImmutable::parse($filters['now'] ?? now())->utc(),
+            'now' => CarbonImmutable::parse(
+                $filters['now'] ?? config('releaselens.demo.anchor_date')
+            )->utc(),
         ];
     }
 

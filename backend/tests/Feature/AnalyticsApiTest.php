@@ -35,7 +35,15 @@ class AnalyticsApiTest extends TestCase
         $response
             ->assertOk()
             ->assertJsonPath('data.selected_repository_count', 1)
-            ->assertJsonPath('data.metrics.waiting_for_first_review', 1);
+            ->assertJsonPath('data.metrics.waiting_for_first_review', 1)
+            ->assertJsonPath(
+                'data.applied_filters.date_from',
+                '2026-05-21T00:00:00+00:00',
+            )
+            ->assertJsonPath(
+                'data.applied_filters.date_to',
+                '2026-06-19T23:59:59+00:00',
+            );
     }
 
     public function test_demo_context_cannot_read_another_organization_analytics(): void

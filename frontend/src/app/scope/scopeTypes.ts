@@ -10,6 +10,7 @@ export type DemoScope = {
   readOnly: true
   organization: DemoSession['organization']
   capabilities: DemoSession['capabilities']
+  demo: DemoSession['demo']
 }
 
 export type AppScope = AnonymousScope | DemoScope
@@ -31,5 +32,6 @@ export function createDemoScope(demoSession: DemoSession): DemoScope {
     readOnly: true,
     organization: demoSession.organization,
     capabilities: demoSession.capabilities,
+    demo: demoSession.demo,
   }
 }

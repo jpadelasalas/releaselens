@@ -67,6 +67,9 @@ class DemoSessionController extends Controller
                 'can_mutate_demo' => false,
                 'can_connect_github' => false,
             ],
+            'demo' => [
+                'anchor_date' => config('releaselens.demo.anchor_date'),
+            ],
         ]);
     }
 }

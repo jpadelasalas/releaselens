@@ -18,6 +18,9 @@ export type DemoSession = {
     can_mutate_demo: boolean
     can_connect_github: boolean
   }
+  demo: {
+    anchor_date: string
+  }
 }
 
 type DemoSessionResponse = {

@@ -2,10 +2,29 @@
 
 namespace App\Modules\Analytics\Http\Requests;
 
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AnalyticsRequest extends FormRequest
 {
+    protected function prepareForValidation(): void
+    {
+        $anchor = CarbonImmutable::parse(
+            config('releaselens.demo.anchor_date')
+        )->utc();
+
+        $this->merge([
+            'date_from' => $this->input(
+                'date_from',
+                $anchor->subDays(29)->startOfDay()->toIso8601String(),
+            ),
+            'date_to' => $this->input(
+                'date_to',
+                $anchor->endOfDay()->toIso8601String(),
+            ),
+        ]);
+    }
+
     public function authorize(): bool
     {
         $context = $this->session()->get('releaselens.context');
@@ -23,8 +42,8 @@ class AnalyticsRequest extends FormRequest
         return [
             'repository_ids' => ['sometimes', 'array'],
             'repository_ids.*' => ['integer', 'min:1'],
-            'date_from' => ['sometimes', 'date'],
-            'date_to' => ['sometimes', 'date', 'after_or_equal:date_from'],
+            'date_from' => ['required', 'date'],
+            'date_to' => ['required', 'date', 'after_or_equal:date_from'],
         ];
     }
 
