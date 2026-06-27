@@ -1,4 +1,5 @@
 import type { DemoSession } from '../../features/demo-session/demoSessionApi'
+import type { AuthSession } from '../../features/auth/authSchemas'
 
 export type AnonymousScope = {
   kind: 'anonymous'
@@ -13,7 +14,13 @@ export type DemoScope = {
   demo: DemoSession['demo']
 }
 
-export type AppScope = AnonymousScope | DemoScope
+export type ConnectedScope = {
+  kind: 'connected'
+  organization: AuthSession['memberships'][number]['organization']
+  role: AuthSession['memberships'][number]['role']
+}
+
+export type AppScope = AnonymousScope | DemoScope | ConnectedScope
 
 export type ScopeStorage = {
   read: () => AppScope | null
@@ -33,5 +40,15 @@ export function createDemoScope(demoSession: DemoSession): DemoScope {
     organization: demoSession.organization,
     capabilities: demoSession.capabilities,
     demo: demoSession.demo,
+  }
+}
+
+export function createConnectedScope(
+  membership: AuthSession['memberships'][number],
+): ConnectedScope {
+  return {
+    kind: 'connected',
+    organization: membership.organization,
+    role: membership.role,
   }
 }

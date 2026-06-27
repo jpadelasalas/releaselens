@@ -1,5 +1,6 @@
 import { createBrowserRouter, Outlet } from 'react-router-dom'
 import { DemoLayout } from './layouts/DemoLayout'
+import { ConnectedRouteFallback } from './layouts/ConnectedRouteFallback'
 import { AppProviders } from './providers/AppProviders'
 import { DemoDashboardRoute } from '../pages/dashboard/DemoDashboardRoute'
 import { LandingPage } from '../pages/landing/LandingPage'
@@ -8,6 +9,7 @@ import { DemoPullRequestExplorerRoute } from '../pages/pull-requests/DemoPullReq
 
 export const router = createBrowserRouter([
   {
+    HydrateFallback: ConnectedRouteFallback,
     element: (
       <AppProviders>
         <Outlet />
@@ -53,7 +55,10 @@ export const router = createBrowserRouter([
             lazy: async () => {
               const { SignInPage } = await import('../pages/auth/SignInPage')
 
-              return { Component: SignInPage }
+              return {
+                Component: SignInPage,
+                HydrateFallback: ConnectedRouteFallback,
+              }
             },
           },
           {
@@ -61,7 +66,10 @@ export const router = createBrowserRouter([
             lazy: async () => {
               const { RegisterPage } = await import('../pages/auth/RegisterPage')
 
-              return { Component: RegisterPage }
+              return {
+                Component: RegisterPage,
+                HydrateFallback: ConnectedRouteFallback,
+              }
             },
           },
           {
@@ -70,17 +78,23 @@ export const router = createBrowserRouter([
                 '../features/auth/ProtectedRoute'
               )
 
-              return { Component: ProtectedRoute }
+              return {
+                Component: ProtectedRoute,
+                HydrateFallback: ConnectedRouteFallback,
+              }
             },
             children: [
               {
                 path: '/app',
                 lazy: async () => {
-                  const { ConnectedWorkspacePage } = await import(
-                    '../pages/workspace/ConnectedWorkspacePage'
+                  const { ConnectedWorkspaceRoute } = await import(
+                    '../pages/workspace/ConnectedWorkspaceRoute'
                   )
 
-                  return { Component: ConnectedWorkspacePage }
+                  return {
+                    Component: ConnectedWorkspaceRoute,
+                    HydrateFallback: ConnectedRouteFallback,
+                  }
                 },
               },
             ],

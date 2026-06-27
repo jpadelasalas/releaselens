@@ -13,6 +13,7 @@ import {
   type AppScope,
   type ScopeStorage,
   anonymousScope,
+  createConnectedScope,
   createDemoScope,
 } from './scopeTypes'
 
@@ -43,14 +44,24 @@ export function ScopeProvider({
     storage.clear()
     setScope(anonymousScope)
   }, [storage])
+  const activateConnectedWorkspace = useCallback(
+    (membership: Parameters<ScopeContextValue['activateConnectedWorkspace']>[0]) => {
+      const connectedScope = createConnectedScope(membership)
+
+      storage.write(connectedScope)
+      setScope(connectedScope)
+    },
+    [storage],
+  )
 
   const value = useMemo<ScopeContextValue>(
     () => ({
       scope,
       activateDemoSession,
+      activateConnectedWorkspace,
       clearScope,
     }),
-    [activateDemoSession, clearScope, scope],
+    [activateConnectedWorkspace, activateDemoSession, clearScope, scope],
   )
 
   return <ScopeContext.Provider value={value}>{children}</ScopeContext.Provider>

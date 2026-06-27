@@ -72,6 +72,15 @@ function isAppScope(value: unknown): value is AppScope {
     return true
   }
 
+  if (value.kind === 'connected') {
+    return isRecord(value.organization) &&
+      typeof value.organization.id === 'number' &&
+      typeof value.organization.name === 'string' &&
+      typeof value.organization.slug === 'string' &&
+      typeof value.organization.timezone === 'string' &&
+      ['owner', 'manager', 'viewer'].includes(String(value.role))
+  }
+
   return value.kind === 'demo' &&
     typeof value.sessionId === 'string' &&
     value.readOnly === true &&

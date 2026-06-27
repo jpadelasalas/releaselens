@@ -7,6 +7,9 @@ use App\Modules\Identity\Http\Controllers\CurrentUserController;
 use App\Modules\Identity\Http\Controllers\LoginController;
 use App\Modules\Identity\Http\Controllers\LogoutController;
 use App\Modules\Identity\Http\Controllers\RegisterController;
+use App\Modules\Organizations\Http\Controllers\ActivateOrganizationController;
+use App\Modules\Organizations\Http\Controllers\CreateOrganizationController;
+use App\Modules\Organizations\Http\Controllers\ListOrganizationsController;
 use App\Modules\PullRequests\Http\Controllers\PullRequestExplorerController;
 use App\Modules\Repositories\Http\Controllers\OrganizationRepositoryController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -33,6 +36,17 @@ Route::prefix('v1')
                 ->name('auth.logout');
             Route::get('/me', CurrentUserController::class)
                 ->name('auth.me');
+
+            Route::get('/organizations', ListOrganizationsController::class)
+                ->name('organizations.index');
+            Route::post('/organizations', CreateOrganizationController::class)
+                ->name('organizations.store');
+            Route::post(
+                '/organizations/{org}/activate',
+                ActivateOrganizationController::class,
+            )
+                ->whereNumber('org')
+                ->name('organizations.activate');
         });
     });
 

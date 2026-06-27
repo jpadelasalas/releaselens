@@ -6,6 +6,8 @@ use App\Modules\Analytics\Contracts\OrganizationAnalyticsRepositoryInterface;
 use App\Modules\Analytics\Repositories\OrganizationAnalyticsRepository;
 use App\Modules\Identity\Contracts\UserRepositoryInterface;
 use App\Modules\Identity\Repositories\UserRepository;
+use App\Modules\Organizations\Contracts\OrganizationWorkspaceRepositoryInterface;
+use App\Modules\Organizations\Repositories\OrganizationWorkspaceRepository;
 use App\Modules\PullRequests\Contracts\PullRequestRepositoryInterface;
 use App\Modules\PullRequests\Repositories\PullRequestRepository;
 use App\Modules\Repositories\Contracts\OrganizationRepositoryInterface;
@@ -40,6 +42,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             UserRepositoryInterface::class,
             UserRepository::class,
+        );
+
+        $this->app->bind(
+            OrganizationWorkspaceRepositoryInterface::class,
+            OrganizationWorkspaceRepository::class,
         );
     }
 

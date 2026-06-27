@@ -1,12 +1,12 @@
 import { useEffect, type PropsWithChildren } from 'react'
 
-import { useScopeContext } from '../../app/scope/useScopeContext'
 import { useAppDispatch } from '../../app/store/hooks'
-import { authenticated, signedOut } from './authSlice'
+import { signedOut } from './authSlice'
+import { useApplyAuthSession } from './useApplyAuthSession'
 
 export function AuthSessionBootstrap({ children }: PropsWithChildren) {
   const dispatch = useAppDispatch()
-  const { clearScope } = useScopeContext()
+  const applyAuthSession = useApplyAuthSession()
 
   useEffect(() => {
     let active = true
@@ -15,8 +15,7 @@ export function AuthSessionBootstrap({ children }: PropsWithChildren) {
       .then(({ getCurrentSession }) => getCurrentSession())
       .then((session) => {
         if (active) {
-          clearScope()
-          dispatch(authenticated(session))
+          applyAuthSession(session)
         }
       })
       .catch(() => {
@@ -28,7 +27,7 @@ export function AuthSessionBootstrap({ children }: PropsWithChildren) {
     return () => {
       active = false
     }
-  }, [clearScope, dispatch])
+  }, [applyAuthSession, dispatch])
 
   return children
 }

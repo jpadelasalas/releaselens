@@ -11,11 +11,13 @@ import {
 } from './authApi'
 import { AuthFeatureContext } from './authContextInstance'
 import type { RegisterValues, SignInValues } from './authSchemas'
-import { authenticated, signedOut } from './authSlice'
+import { signedOut } from './authSlice'
+import { useApplyAuthSession } from './useApplyAuthSession'
 
 export function AuthFeatureProvider({ children }: PropsWithChildren) {
   const dispatch = useAppDispatch()
   const { clearScope } = useScopeContext()
+  const applyAuthSession = useApplyAuthSession()
   const signInMutation = useMutation({ mutationFn: signInRequest })
   const registerMutation = useMutation({ mutationFn: registerAccount })
   const signOutMutation = useMutation({ mutationFn: signOutRequest })
@@ -23,25 +25,24 @@ export function AuthFeatureProvider({ children }: PropsWithChildren) {
   const signIn = useCallback(
     async (values: SignInValues) => {
       const session = await signInMutation.mutateAsync(values)
-      clearScope()
-      dispatch(authenticated(session))
+      applyAuthSession(session)
       return session
     },
-    [clearScope, dispatch, signInMutation],
+    [applyAuthSession, signInMutation],
   )
   const register = useCallback(
     async (values: RegisterValues) => {
       const session = await registerMutation.mutateAsync(values)
-      clearScope()
-      dispatch(authenticated(session))
+      applyAuthSession(session)
       return session
     },
-    [clearScope, dispatch, registerMutation],
+    [applyAuthSession, registerMutation],
   )
   const signOut = useCallback(async () => {
     await signOutMutation.mutateAsync()
+    clearScope()
     dispatch(signedOut())
-  }, [dispatch, signOutMutation])
+  }, [clearScope, dispatch, signOutMutation])
   const clearError = useCallback(() => {
     signInMutation.reset()
     registerMutation.reset()

@@ -52,6 +52,32 @@ test('visitor registers, enters a protected workspace, and signs out', async ({
   ).toBeVisible()
   await expect(page.getByText('alex@example.com')).toBeVisible()
 
+  await page.getByLabel('Workspace name').fill('Platform Team')
+  await page.getByLabel('Workspace timezone').selectOption('Asia/Manila')
+  await page.getByRole('button', { name: 'Create Workspace' }).click()
+
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Platform Team' }),
+  ).toBeVisible()
+  const platformWorkspace = page
+    .getByRole('article')
+    .filter({ hasText: 'Platform Team' })
+  await expect(platformWorkspace).toContainText('owner - Asia/Manila')
+  await expect(
+    platformWorkspace.getByRole('button', { name: 'Active workspace' }),
+  ).toBeDisabled()
+
+  await page.getByLabel('Workspace name').fill('Mobile Team')
+  await page.getByRole('button', { name: 'Create Workspace' }).click()
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Mobile Team' }),
+  ).toBeVisible()
+
+  await platformWorkspace.getByRole('button', { name: 'Open workspace' }).click()
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Platform Team' }),
+  ).toBeVisible()
+
   await page.getByRole('button', { name: 'Sign Out' }).click()
 
   await expect(page).toHaveURL(/\/sign-in$/)
