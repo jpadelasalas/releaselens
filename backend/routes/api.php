@@ -3,6 +3,10 @@
 use App\Http\Controllers\Api\V1\DemoSessionController;
 use App\Http\Middleware\EnsureDemoSessionIsReadOnly;
 use App\Modules\Analytics\Http\Controllers\OrganizationAnalyticsController;
+use App\Modules\Identity\Http\Controllers\CurrentUserController;
+use App\Modules\Identity\Http\Controllers\LoginController;
+use App\Modules\Identity\Http\Controllers\LogoutController;
+use App\Modules\Identity\Http\Controllers\RegisterController;
 use App\Modules\PullRequests\Http\Controllers\PullRequestExplorerController;
 use App\Modules\Repositories\Http\Controllers\OrganizationRepositoryController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
@@ -10,6 +14,27 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+
+Route::prefix('v1')
+    ->middleware('web')
+    ->group(function (): void {
+        Route::get('/auth/csrf-cookie', fn () => response()->noContent())
+            ->name('auth.csrf-cookie');
+
+        Route::middleware('throttle:authentication')->group(function (): void {
+            Route::post('/auth/register', RegisterController::class)
+                ->name('auth.register');
+            Route::post('/auth/login', LoginController::class)
+                ->name('auth.login');
+        });
+
+        Route::middleware('auth')->group(function (): void {
+            Route::post('/auth/logout', LogoutController::class)
+                ->name('auth.logout');
+            Route::get('/me', CurrentUserController::class)
+                ->name('auth.me');
+        });
+    });
 
 Route::prefix('v1')
     ->middleware([

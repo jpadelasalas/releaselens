@@ -33,3 +33,32 @@ test('visitor enters demo and opens waiting-for-review records', async ({ page }
     'This workspace is read-only',
   )
 })
+
+test('visitor registers, enters a protected workspace, and signs out', async ({
+  page,
+}) => {
+  await page.goto('/register')
+
+  await page.getByLabel('Name').fill('Alex Rivera')
+  await page.getByLabel('Email address').fill('alex@example.com')
+  await page.getByLabel('Password', { exact: true }).fill('release-lens-2026')
+  await page.getByLabel('Confirm password').fill('release-lens-2026')
+  await page.getByLabel('Timezone').selectOption('Asia/Manila')
+  await page.getByRole('button', { name: 'Create Account' }).click()
+
+  await expect(page).toHaveURL(/\/app$/)
+  await expect(
+    page.getByRole('heading', { name: 'Choose your workspace' }),
+  ).toBeVisible()
+  await expect(page.getByText('alex@example.com')).toBeVisible()
+
+  await page.getByRole('button', { name: 'Sign Out' }).click()
+
+  await expect(page).toHaveURL(/\/sign-in$/)
+  await expect(
+    page.getByRole('heading', { name: 'Sign in to ReleaseLens' }),
+  ).toBeVisible()
+
+  await page.goto('/app')
+  await expect(page).toHaveURL(/\/sign-in$/)
+})

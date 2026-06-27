@@ -4,6 +4,8 @@ namespace App\Providers;
 
 use App\Modules\Analytics\Contracts\OrganizationAnalyticsRepositoryInterface;
 use App\Modules\Analytics\Repositories\OrganizationAnalyticsRepository;
+use App\Modules\Identity\Contracts\UserRepositoryInterface;
+use App\Modules\Identity\Repositories\UserRepository;
 use App\Modules\PullRequests\Contracts\PullRequestRepositoryInterface;
 use App\Modules\PullRequests\Repositories\PullRequestRepository;
 use App\Modules\Repositories\Contracts\OrganizationRepositoryInterface;
@@ -34,6 +36,11 @@ class AppServiceProvider extends ServiceProvider
             OrganizationRepositoryInterface::class,
             OrganizationRepository::class,
         );
+
+        $this->app->bind(
+            UserRepositoryInterface::class,
+            UserRepository::class,
+        );
     }
 
     /**
@@ -47,6 +54,12 @@ class AppServiceProvider extends ServiceProvider
                     ? $request->session()->getId()
                     : $request->ip()) ?: 'anonymous-demo-session'
             );
+        });
+
+        RateLimiter::for('authentication', function (Request $request) {
+            $email = mb_strtolower((string) $request->input('email'));
+
+            return Limit::perMinute(5)->by($email.'|'.$request->ip());
         });
     }
 }

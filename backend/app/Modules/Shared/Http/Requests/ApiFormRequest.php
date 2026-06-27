@@ -1,0 +1,21 @@
+<?php
+
+namespace App\Modules\Shared\Http\Requests;
+
+use Illuminate\Contracts\Validation\Validator;
+use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Http\Exceptions\HttpResponseException;
+
+abstract class ApiFormRequest extends FormRequest
+{
+    protected function failedValidation(Validator $validator): void
+    {
+        throw new HttpResponseException(response()->json([
+            'error' => [
+                'code' => 'VALIDATION_FAILED',
+                'message' => 'The submitted data is invalid.',
+                'details' => $validator->errors()->toArray(),
+            ],
+        ], 422));
+    }
+}
