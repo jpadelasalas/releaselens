@@ -1,23 +1,29 @@
+import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined'
+import MenuBookOutlinedIcon from '@mui/icons-material/MenuBookOutlined'
+import MergeOutlinedIcon from '@mui/icons-material/MergeOutlined'
+import SourceOutlinedIcon from '@mui/icons-material/SourceOutlined'
+import SyncOutlinedIcon from '@mui/icons-material/SyncOutlined'
 import { BrandLink } from '../../../components/navigation/BrandLink'
 
 const demoNavItems = [
-  'Dashboard',
-  'Pull Requests',
-  'Repositories',
-  'Sync Runs',
-  'Metric Glossary',
+  { label: 'Dashboard', icon: DashboardOutlinedIcon },
+  { label: 'Pull Requests', icon: MergeOutlinedIcon },
+  { label: 'Repositories', icon: SourceOutlinedIcon },
+  { label: 'Sync Runs', icon: SyncOutlinedIcon },
+  { label: 'Metric Glossary', icon: MenuBookOutlinedIcon },
 ]
 
 export function DashboardNav() {
   return (
     <aside className="dashboard-nav">
       <BrandLink />
-      {demoNavItems.map((item) => (
+      {demoNavItems.map(({ label, icon: Icon }) => (
         <span
-          key={item}
-          className={item === 'Dashboard' ? 'nav-current' : undefined}
+          key={label}
+          className={label === 'Dashboard' ? 'nav-current' : undefined}
         >
-          {item}
+          <Icon aria-hidden="true" fontSize="small" />
+          {label}
         </span>
       ))}
     </aside>

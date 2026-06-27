@@ -209,7 +209,6 @@
 .trust-section p,
 .value-grid p,
 .centered-page p,
-.metric-card p,
 .dashboard-header p,
 .flow-panel p {
   color: var(--color-muted);
@@ -374,7 +373,6 @@
 }
 
 .preview-cards div,
-.metric-card,
 .flow-panel,
 .attention-panel,
 .trust-section > div,
@@ -467,9 +465,16 @@
 }
 
 .dashboard-nav span:not(.brand-mark) {
+  align-items: center;
   border-radius: 8px;
   color: var(--color-sidebar-muted);
+  display: flex;
+  gap: 10px;
   padding: 10px;
+}
+
+.dashboard-nav span:not(.brand-mark) svg {
+  flex: 0 0 auto;
 }
 
 .dashboard-nav .nav-current {
@@ -513,23 +518,6 @@
 
 .metrics-grid {
   grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.metric-card {
-  display: grid;
-  gap: 8px;
-  padding: 18px;
-}
-
-.metric-card > span {
-  color: var(--color-subtle);
-  font-size: 13px;
-  font-weight: 800;
-}
-
-.metric-card strong {
-  color: var(--color-heading);
-  font-size: 34px;
 }
 
 .dashboard-panels {
