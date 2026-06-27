@@ -4,6 +4,7 @@ import { AppProviders } from './providers/AppProviders'
 import { SignInPage } from '../pages/auth/SignInPage'
 import { DemoDashboardRoute } from '../pages/dashboard/DemoDashboardRoute'
 import { LandingPage } from '../pages/landing/LandingPage'
+import { MetricGlossaryRoute } from '../pages/metrics/MetricGlossaryRoute'
 import { DemoPullRequestExplorerRoute } from '../pages/pull-requests/DemoPullRequestExplorerRoute'
 
 export const router = createBrowserRouter([
@@ -29,6 +30,10 @@ export const router = createBrowserRouter([
           {
             path: 'pull-requests',
             element: <DemoPullRequestExplorerRoute />,
+          },
+          {
+            path: 'metrics',
+            element: <MetricGlossaryRoute />,
           },
         ],
       },

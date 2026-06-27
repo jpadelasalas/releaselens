@@ -15,6 +15,7 @@ export type DashboardMetric = {
   detail: string
   to?: string
   actionLabel?: string
+  definitionTo: string
 }
 
 export type DashboardWorkspaceState = {

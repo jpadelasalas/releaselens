@@ -11,11 +11,11 @@ const demoNavItems = [
   { label: 'Pull Requests', icon: MergeOutlinedIcon, to: '/demo/pull-requests' },
   { label: 'Repositories', icon: SourceOutlinedIcon },
   { label: 'Sync Runs', icon: SyncOutlinedIcon },
-  { label: 'Metric Glossary', icon: MenuBookOutlinedIcon },
+  { label: 'Metric Glossary', icon: MenuBookOutlinedIcon, to: '/demo/metrics' },
 ]
 
 type DashboardNavProps = {
-  activeItem?: 'Dashboard' | 'Pull Requests'
+  activeItem?: 'Dashboard' | 'Pull Requests' | 'Metric Glossary'
 }
 
 export function DashboardNav({ activeItem = 'Dashboard' }: DashboardNavProps) {

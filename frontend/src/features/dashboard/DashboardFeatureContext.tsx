@@ -2,6 +2,7 @@ import { type ReactNode, useCallback, useMemo } from 'react'
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import { useDashboardAnalytics } from '../analytics/useDashboardAnalytics'
 import { useDashboardFilters } from '../analytics/useDashboardFilters'
+import { getMetricDefinitionUrl } from '../metrics/metricDefinitions'
 import {
   buildAgeBucketUrl,
   buildAttentionUrl,
@@ -74,6 +75,7 @@ export function DashboardFeatureProvider({
         detail: 'Open, non-draft PRs without a qualifying human review.',
         to: buildWaitingForReviewUrl(dashboardFilters.filters),
         actionLabel: 'View waiting pull requests',
+        definitionTo: getMetricDefinitionUrl('waiting-for-review'),
       },
       {
         id: 'median-first-review',
@@ -84,6 +86,7 @@ export function DashboardFeatureProvider({
         detail: rawMetrics
           ? `${rawMetrics.median_first_review_sample_size} qualifying reviewed PRs.`
           : 'Submitted human review excluding self, bot, pending, and dismissed reviews.',
+        definitionTo: getMetricDefinitionUrl('median-first-review'),
       },
       {
         id: 'median-merge-time',
@@ -92,6 +95,7 @@ export function DashboardFeatureProvider({
         detail: rawMetrics
           ? `${rawMetrics.median_merge_sample_size} merged PRs in the active filters.`
           : 'Merged pull requests in the seeded demo window.',
+        definitionTo: getMetricDefinitionUrl('median-merge-time'),
       },
       {
         id: 'large-prs',
@@ -100,6 +104,7 @@ export function DashboardFeatureProvider({
         detail: 'Pull requests above 500 changed lines.',
         to: buildSizeBucketUrl(dashboardFilters.filters, 'large'),
         actionLabel: 'View large pull requests',
+        definitionTo: getMetricDefinitionUrl('pr-size'),
       },
       {
         id: 'closed-without-merge',
@@ -108,6 +113,7 @@ export function DashboardFeatureProvider({
         detail: 'Closed pull requests that were not merged.',
         to: buildClosedWithoutMergeUrl(dashboardFilters.filters),
         actionLabel: 'View closed pull requests',
+        definitionTo: getMetricDefinitionUrl('closed-without-merge'),
       },
       {
         id: 'attention-count',
@@ -116,6 +122,7 @@ export function DashboardFeatureProvider({
         detail: 'Open pull requests matching explicit attention rules.',
         to: buildAttentionUrl(dashboardFilters.filters),
         actionLabel: 'View attention records',
+        definitionTo: getMetricDefinitionUrl('attention-count'),
       },
     ],
     [dashboardFilters.filters, largePrBucket, rawMetrics],
