@@ -1,18 +1,20 @@
-import { useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import type { AnalyticsFilters } from './analyticsApi'
 
 export function useDashboardFilters(anchorDate: string | null) {
-  const defaults = createDefaultFilters(anchorDate)
+  const defaults = useMemo(() => createDefaultFilters(anchorDate), [anchorDate])
   const [filters, setFilters] = useState<AnalyticsFilters>(defaults)
+  const clearFilters = useCallback(() => setFilters(defaults), [defaults])
 
-  return {
-    filters,
-    defaults,
-    applyFilters: setFilters,
-    clearFilters() {
-      setFilters(defaults)
-    },
-  }
+  return useMemo(
+    () => ({
+      filters,
+      defaults,
+      applyFilters: setFilters,
+      clearFilters,
+    }),
+    [clearFilters, defaults, filters],
+  )
 }
 
 function createDefaultFilters(anchorDate: string | null): AnalyticsFilters {

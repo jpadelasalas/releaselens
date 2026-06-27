@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react'
+import { DashboardFeatureProvider } from '../../features/dashboard/DashboardFeatureContext'
 
 const DemoDashboardPage = lazy(() =>
   import('./DemoDashboardPage').then((module) => ({
@@ -8,9 +9,11 @@ const DemoDashboardPage = lazy(() =>
 
 export function DemoDashboardRoute() {
   return (
-    <Suspense fallback={<DashboardRouteFallback />}>
-      <DemoDashboardPage />
-    </Suspense>
+    <DashboardFeatureProvider>
+      <Suspense fallback={<DashboardRouteFallback />}>
+        <DemoDashboardPage />
+      </Suspense>
+    </DashboardFeatureProvider>
   )
 }
 

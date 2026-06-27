@@ -1,4 +1,5 @@
 import { lazy, Suspense } from 'react'
+import { PullRequestExplorerProvider } from '../../features/pull-requests/PullRequestExplorerContext'
 
 const DemoPullRequestExplorerPage = lazy(() =>
   import('./DemoPullRequestExplorerPage').then((module) => ({
@@ -8,9 +9,11 @@ const DemoPullRequestExplorerPage = lazy(() =>
 
 export function DemoPullRequestExplorerRoute() {
   return (
-    <Suspense fallback={<ExplorerRouteFallback />}>
-      <DemoPullRequestExplorerPage />
-    </Suspense>
+    <PullRequestExplorerProvider>
+      <Suspense fallback={<ExplorerRouteFallback />}>
+        <DemoPullRequestExplorerPage />
+      </Suspense>
+    </PullRequestExplorerProvider>
   )
 }
 

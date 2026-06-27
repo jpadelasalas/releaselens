@@ -1,19 +1,12 @@
 import { lazy, Suspense } from 'react'
 import { Link } from 'react-router-dom'
-import { useScopeContext } from '../../app/scope/useScopeContext'
 import { ThemeToggle } from '../../components/theme/ThemeToggle'
 import type { AnalyticsAttentionRecord } from '../../features/analytics/analyticsApi'
-import { useDashboardAnalytics } from '../../features/analytics/useDashboardAnalytics'
-import { useDashboardFilters } from '../../features/analytics/useDashboardFilters'
-import { useOrganizationRepositories } from '../../features/repositories/useOrganizationRepositories'
 import {
-  buildAgeBucketUrl,
-  buildAttentionUrl,
-  buildClosedWithoutMergeUrl,
-  buildSizeBucketUrl,
-  buildWaitingForReviewUrl,
-  buildWeeklyPointUrl,
-} from '../../features/pull-requests/pullRequestExplorerUrl'
+  useDashboardContent,
+  useDashboardControls,
+  useDashboardWorkspace,
+} from '../../features/dashboard/useDashboardFeatureContext'
 import { DashboardFilters } from './components/DashboardFilters'
 import { DashboardLoadingSkeleton } from './components/DashboardLoadingSkeleton'
 import { DashboardNav } from './components/DashboardNav'
@@ -27,17 +20,11 @@ const WeeklyFlowChart = lazy(() =>
 )
 
 export function DemoDashboardPage() {
-  const { scope } = useScopeContext()
-  const organizationId = scope.kind === 'demo' ? scope.organization.id : null
-  const anchorDate = scope.kind === 'demo' ? scope.demo.anchor_date : null
-  const dashboardFilters = useDashboardFilters(anchorDate)
-  const dashboardQuery = useDashboardAnalytics(
-    organizationId,
-    dashboardFilters.filters,
-  )
-  const repositoriesQuery = useOrganizationRepositories(organizationId)
+  const { workspace, isLoading, isError, isSuccess } = useDashboardWorkspace()
+  const controls = useDashboardControls()
+  const content = useDashboardContent()
 
-  if (scope.kind !== 'demo') {
+  if (workspace === null) {
     return (
       <main className="centered-page">
         <p className="eyebrow">Demo session required</p>
@@ -53,17 +40,6 @@ export function DemoDashboardPage() {
     )
   }
 
-  const analytics = dashboardQuery.data
-  const metrics = analytics?.summary.metrics
-  const largePrBucket = analytics?.distributions.buckets.pr_size.find(
-    (bucket) => bucket.key === 'large',
-  )
-  const attentionRecords = analytics?.attention.records.slice(0, 5) ?? []
-  const freshnessLabel = analytics?.summary.demo_freshness_at
-    ? `Fresh ${formatDateTime(analytics.summary.demo_freshness_at)}`
-    : 'Freshness pending'
-  const repositoryCount = analytics?.summary.selected_repository_count ?? 0
-
   return (
     <main className="dashboard-shell">
       <DashboardNav />
@@ -72,105 +48,52 @@ export function DemoDashboardPage() {
         <header className="dashboard-header">
           <div>
             <p className="eyebrow">Demo workspace</p>
-            <h1>{scope.organization.name}</h1>
+            <h1>{workspace.organization.name}</h1>
             <p>
-              Read-only synthetic data - {scope.organization.timezone} - Session{' '}
-              {scope.sessionId.slice(0, 8)}
+              Read-only synthetic data - {workspace.organization.timezone} - Session{' '}
+              {workspace.sessionId.slice(0, 8)}
             </p>
           </div>
           <div className="dashboard-header-actions">
             <ThemeToggle />
-            {dashboardQuery.isSuccess && (
-              <span className="freshness">{freshnessLabel}</span>
+            {isSuccess && (
+              <span className="freshness">{content.freshnessLabel}</span>
             )}
             <span className="demo-badge">Demo read-only</span>
           </div>
         </header>
 
-        {dashboardQuery.isLoading ? (
+        {isLoading ? (
           <DashboardLoadingSkeleton />
-        ) : dashboardQuery.isError ? (
+        ) : isError ? (
           <section className="retry-panel dashboard-error" role="alert">
             <strong>Dashboard analytics are unavailable.</strong>
             <span>Free-tier services may still be waking up. Retry in a moment.</span>
-            <button type="button" onClick={() => void dashboardQuery.refetch()}>
+            <button type="button" onClick={controls.retry}>
               Retry Dashboard
             </button>
           </section>
         ) : (
           <>
             <DashboardFilters
-              repositories={repositoriesQuery.data ?? []}
-              initialFilters={dashboardFilters.defaults}
-              disabled={repositoriesQuery.isLoading || dashboardQuery.isFetching}
-              onApply={dashboardFilters.applyFilters}
-              onClear={dashboardFilters.clearFilters}
+              repositories={controls.repositories}
+              initialFilters={controls.initialFilters}
+              disabled={controls.filtersDisabled}
+              onApply={controls.applyFilters}
+              onClear={controls.clearFilters}
             />
 
             <section className="dashboard-meta" aria-label="Dashboard freshness">
               <span>
-                {dashboardQuery.isSuccess ? repositoryCount : '...'} repositories selected
+                {isSuccess ? content.repositoryCount : '...'} repositories selected
               </span>
-              <span>{dashboardQuery.isSuccess ? freshnessLabel : 'Loading analytics...'}</span>
+              <span>{isSuccess ? content.freshnessLabel : 'Loading analytics...'}</span>
             </section>
 
             <section className="metrics-grid" aria-label="Dashboard metrics">
-              <MetricCard
-                label="Waiting for review"
-                value={
-                  metrics
-                    ? String(metrics.waiting_for_first_review)
-                    : '...'
-                }
-                detail="Open, non-draft PRs without a qualifying human review."
-                to={buildWaitingForReviewUrl(dashboardFilters.filters)}
-                actionLabel="View waiting pull requests"
-              />
-              <MetricCard
-                label="Median first review"
-                value={
-                  metrics
-                    ? formatHours(metrics.median_first_review_hours)
-                    : '...'
-                }
-                detail={
-                  metrics
-                    ? `${metrics.median_first_review_sample_size} qualifying reviewed PRs.`
-                    : 'Submitted human review excluding self, bot, pending, and dismissed reviews.'
-                }
-              />
-              <MetricCard
-                label="Median merge time"
-                value={
-                  metrics ? formatHours(metrics.median_merge_hours) : '...'
-                }
-                detail={
-                  metrics
-                    ? `${metrics.median_merge_sample_size} merged PRs in the active filters.`
-                    : 'Merged pull requests in the seeded demo window.'
-                }
-              />
-              <MetricCard
-                label="Large PRs"
-                value={largePrBucket ? String(largePrBucket.count) : '...'}
-                detail="Pull requests above 500 changed lines."
-                to={buildSizeBucketUrl(dashboardFilters.filters, 'large')}
-                actionLabel="View large pull requests"
-              />
-              <MetricCard
-                label="Closed without merge"
-                value={metrics ? String(metrics.closed_without_merge) : '...'}
-                detail="Closed pull requests that were not merged."
-                to={buildClosedWithoutMergeUrl(dashboardFilters.filters)}
-                actionLabel="View closed pull requests"
-              />
-              <MetricCard
-                label="Attention count"
-                value={metrics ? String(metrics.attention_count) : '...'}
-                detail="Open pull requests matching explicit attention rules."
-                to={buildAttentionUrl(dashboardFilters.filters)}
-                actionLabel="View attention records"
-              />
+              {content.metrics.map((metric) => (
+                <MetricCard key={metric.id} {...metric} />
+              ))}
             </section>
 
             <section
@@ -180,55 +103,34 @@ export function DemoDashboardPage() {
               <DistributionPanel
                 title="Open PR age"
                 description="Current open pull requests grouped by age."
-                buckets={analytics?.distributions.buckets.open_pr_age ?? []}
-                getBucketUrl={(bucket) =>
-                  buildAgeBucketUrl(
-                    dashboardFilters.filters,
-                    bucket.key as 'under_1_day' | '1_to_3_days' | '3_to_7_days' | 'over_7_days',
-                  )
-                }
+                buckets={content.ageBuckets}
+                getBucketUrl={content.getAgeBucketUrl}
               />
               <DistributionPanel
                 title="PR size"
                 description="Pull requests grouped by additions plus deletions."
-                buckets={analytics?.distributions.buckets.pr_size ?? []}
-                getBucketUrl={(bucket) =>
-                  buildSizeBucketUrl(
-                    dashboardFilters.filters,
-                    bucket.key as 'xs' | 'small' | 'medium' | 'large',
-                  )
-                }
+                buckets={content.sizeBuckets}
+                getBucketUrl={content.getSizeBucketUrl}
               />
             </section>
 
             <section className="dashboard-panels">
               <Suspense fallback={<ChartLoadingFallback />}>
                 <WeeklyFlowChart
-                  series={
-                    analytics?.trends.series.opened_vs_merged_by_week ?? []
-                  }
-                  getPointUrl={(event, week) =>
-                    buildWeeklyPointUrl(
-                      dashboardFilters.filters,
-                      event,
-                      week,
-                    )
-                  }
+                  series={content.weeklySeries}
+                  getPointUrl={content.getWeeklyPointUrl}
                 />
               </Suspense>
 
               <article className="attention-panel">
                 <h2>Attention list</h2>
-                {dashboardQuery.isLoading && (
-                  <p>Loading attention records...</p>
-                )}
-                {dashboardQuery.isSuccess &&
-                  attentionRecords.length === 0 && (
+                {isSuccess &&
+                  content.attentionRecords.length === 0 && (
                     <p>No pull requests match the active attention rules.</p>
                   )}
-                {attentionRecords.length > 0 && (
+                {content.attentionRecords.length > 0 && (
                   <ul>
-                    {attentionRecords.map((record) => (
+                    {content.attentionRecords.map((record) => (
                       <AttentionItem key={record.pull_request_id} record={record} />
                     ))}
                   </ul>
@@ -266,27 +168,13 @@ function AttentionItem({ record }: { record: AnalyticsAttentionRecord }) {
   )
 }
 
-function formatHours(hours: number | null): string {
-  if (hours === null) {
-    return 'N/A'
-  }
-
-  if (hours < 24) {
-    return `${round(hours)}h`
-  }
-
-  return `${round(hours / 24)}d`
-}
-
 function formatAge(hours: number): string {
-  return formatHours(hours)
-}
+  if (hours < 24) {
+    return `${hours}h`
+  }
 
-function formatDateTime(value: string): string {
-  return new Intl.DateTimeFormat(undefined, {
-    dateStyle: 'medium',
-    timeStyle: 'short',
-  }).format(new Date(value))
+  const days = hours / 24
+  return `${Number.isInteger(days) ? days : days.toFixed(1)}d`
 }
 
 function formatAttentionReasons(reasons: string[]): string {
@@ -299,8 +187,4 @@ function formatReason(reason: string): string {
     .split('_')
     .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
     .join(' ')
-}
-
-function round(value: number): string {
-  return Number.isInteger(value) ? String(value) : value.toFixed(1)
 }

@@ -1,25 +1,22 @@
 import ArrowBackOutlinedIcon from '@mui/icons-material/ArrowBackOutlined'
 import ChevronLeftOutlinedIcon from '@mui/icons-material/ChevronLeftOutlined'
 import ChevronRightOutlinedIcon from '@mui/icons-material/ChevronRightOutlined'
-import { Link, useSearchParams } from 'react-router-dom'
-import { useScopeContext } from '../../app/scope/useScopeContext'
+import { Link } from 'react-router-dom'
 import { ThemeToggle } from '../../components/theme/ThemeToggle'
 import type { PullRequestRecord } from '../../features/pull-requests/pullRequestApi'
 import {
-  getExplorerTitle,
-  parsePullRequestExplorerFilters,
-} from '../../features/pull-requests/pullRequestExplorerUrl'
-import { usePullRequestExplorer } from '../../features/pull-requests/usePullRequestExplorer'
+  usePullRequestExplorerActions,
+  usePullRequestExplorerData,
+  usePullRequestExplorerWorkspace,
+} from '../../features/pull-requests/usePullRequestExplorerContext'
 import { DashboardNav } from '../dashboard/components/DashboardNav'
 
 export function DemoPullRequestExplorerPage() {
-  const { scope } = useScopeContext()
-  const [searchParams, setSearchParams] = useSearchParams()
-  const organizationId = scope.kind === 'demo' ? scope.organization.id : null
-  const filters = parsePullRequestExplorerFilters(searchParams)
-  const pullRequestsQuery = usePullRequestExplorer(organizationId, filters)
+  const { workspace, title } = usePullRequestExplorerWorkspace()
+  const { response, isLoading, isError } = usePullRequestExplorerData()
+  const { retry, setPage } = usePullRequestExplorerActions()
 
-  if (scope.kind !== 'demo') {
+  if (!workspace) {
     return (
       <main className="centered-page">
         <h1>Open the demo workspace first.</h1>
@@ -28,20 +25,6 @@ export function DemoPullRequestExplorerPage() {
         </Link>
       </main>
     )
-  }
-
-  const response = pullRequestsQuery.data
-
-  function setPage(page: number) {
-    const nextParams = new URLSearchParams(searchParams)
-
-    if (page <= 1) {
-      nextParams.delete('page')
-    } else {
-      nextParams.set('page', String(page))
-    }
-
-    setSearchParams(nextParams)
   }
 
   return (
@@ -59,7 +42,7 @@ export function DemoPullRequestExplorerPage() {
               Dashboard
             </Link>
             <p className="eyebrow">Supporting records</p>
-            <h1>{getExplorerTitle(filters)}</h1>
+            <h1>{title}</h1>
             <p>
               Exact records behind the dashboard metric under the preserved
               repository and date filters.
@@ -73,13 +56,13 @@ export function DemoPullRequestExplorerPage() {
           </div>
         </header>
 
-        {pullRequestsQuery.isLoading && <ExplorerLoadingState />}
+        {isLoading && <ExplorerLoadingState />}
 
-        {pullRequestsQuery.isError && (
+        {isError && (
           <section className="retry-panel dashboard-error" role="alert">
             <strong>Pull requests are unavailable.</strong>
             <span>Retry the filtered explorer request.</span>
-            <button type="button" onClick={() => void pullRequestsQuery.refetch()}>
+            <button type="button" onClick={retry}>
               Retry
             </button>
           </section>
