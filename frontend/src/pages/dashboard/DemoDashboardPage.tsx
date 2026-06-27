@@ -6,7 +6,14 @@ import type { AnalyticsAttentionRecord } from '../../features/analytics/analytic
 import { useDashboardAnalytics } from '../../features/analytics/useDashboardAnalytics'
 import { useDashboardFilters } from '../../features/analytics/useDashboardFilters'
 import { useOrganizationRepositories } from '../../features/repositories/useOrganizationRepositories'
-import { buildWaitingForReviewUrl } from '../../features/pull-requests/pullRequestExplorerUrl'
+import {
+  buildAgeBucketUrl,
+  buildAttentionUrl,
+  buildClosedWithoutMergeUrl,
+  buildSizeBucketUrl,
+  buildWaitingForReviewUrl,
+  buildWeeklyPointUrl,
+} from '../../features/pull-requests/pullRequestExplorerUrl'
 import { DashboardFilters } from './components/DashboardFilters'
 import { DashboardLoadingSkeleton } from './components/DashboardLoadingSkeleton'
 import { DashboardNav } from './components/DashboardNav'
@@ -147,6 +154,22 @@ export function DemoDashboardPage() {
                 label="Large PRs"
                 value={largePrBucket ? String(largePrBucket.count) : '...'}
                 detail="Pull requests above 500 changed lines."
+                to={buildSizeBucketUrl(dashboardFilters.filters, 'large')}
+                actionLabel="View large pull requests"
+              />
+              <MetricCard
+                label="Closed without merge"
+                value={metrics ? String(metrics.closed_without_merge) : '...'}
+                detail="Closed pull requests that were not merged."
+                to={buildClosedWithoutMergeUrl(dashboardFilters.filters)}
+                actionLabel="View closed pull requests"
+              />
+              <MetricCard
+                label="Attention count"
+                value={metrics ? String(metrics.attention_count) : '...'}
+                detail="Open pull requests matching explicit attention rules."
+                to={buildAttentionUrl(dashboardFilters.filters)}
+                actionLabel="View attention records"
               />
             </section>
 
@@ -158,11 +181,23 @@ export function DemoDashboardPage() {
                 title="Open PR age"
                 description="Current open pull requests grouped by age."
                 buckets={analytics?.distributions.buckets.open_pr_age ?? []}
+                getBucketUrl={(bucket) =>
+                  buildAgeBucketUrl(
+                    dashboardFilters.filters,
+                    bucket.key as 'under_1_day' | '1_to_3_days' | '3_to_7_days' | 'over_7_days',
+                  )
+                }
               />
               <DistributionPanel
                 title="PR size"
                 description="Pull requests grouped by additions plus deletions."
                 buckets={analytics?.distributions.buckets.pr_size ?? []}
+                getBucketUrl={(bucket) =>
+                  buildSizeBucketUrl(
+                    dashboardFilters.filters,
+                    bucket.key as 'xs' | 'small' | 'medium' | 'large',
+                  )
+                }
               />
             </section>
 
@@ -171,6 +206,13 @@ export function DemoDashboardPage() {
                 <WeeklyFlowChart
                   series={
                     analytics?.trends.series.opened_vs_merged_by_week ?? []
+                  }
+                  getPointUrl={(event, week) =>
+                    buildWeeklyPointUrl(
+                      dashboardFilters.filters,
+                      event,
+                      week,
+                    )
                   }
                 />
               </Suspense>

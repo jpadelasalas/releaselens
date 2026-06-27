@@ -48,6 +48,18 @@ class ListPullRequestsRequest extends FormRequest
             'date_from' => ['required', 'date'],
             'date_to' => ['required', 'date', 'after_or_equal:date_from'],
             'review_status' => ['sometimes', Rule::in(['waiting'])],
+            'attention' => ['sometimes', 'boolean'],
+            'state' => ['sometimes', Rule::in(['closed_without_merge'])],
+            'age_bucket' => [
+                'sometimes',
+                Rule::in(['under_1_day', '1_to_3_days', '3_to_7_days', 'over_7_days']),
+            ],
+            'size_bucket' => [
+                'sometimes',
+                Rule::in(['xs', 'small', 'medium', 'large']),
+            ],
+            'event' => ['sometimes', Rule::in(['opened', 'merged'])],
+            'week' => ['required_with:event', 'date'],
             'page' => ['required', 'integer', 'min:1'],
             'per_page' => ['required', 'integer', 'min:1', 'max:100'],
         ];
@@ -68,6 +80,12 @@ class ListPullRequestsRequest extends FormRequest
             'date_from' => $validated['date_from'],
             'date_to' => $validated['date_to'],
             'review_status' => $validated['review_status'] ?? null,
+            'attention' => (bool) ($validated['attention'] ?? false),
+            'state' => $validated['state'] ?? null,
+            'age_bucket' => $validated['age_bucket'] ?? null,
+            'size_bucket' => $validated['size_bucket'] ?? null,
+            'event' => $validated['event'] ?? null,
+            'week' => $validated['week'] ?? null,
             'page' => (int) $validated['page'],
             'per_page' => (int) $validated['per_page'],
         ];

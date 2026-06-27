@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import {
+  buildAgeBucketUrl,
   buildWaitingForReviewUrl,
   parsePullRequestExplorerFilters,
 } from './pullRequestExplorerUrl'
@@ -21,5 +22,11 @@ describe('pull request explorer URL filters', () => {
       page: 1,
       per_page: 25,
     })
+  })
+
+  it('builds age bucket drill-down URLs', () => {
+    const url = buildAgeBucketUrl({}, 'over_7_days')
+
+    expect(url).toContain('age_bucket=over_7_days')
   })
 })

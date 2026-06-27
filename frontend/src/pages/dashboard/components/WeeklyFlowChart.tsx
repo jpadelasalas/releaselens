@@ -1,4 +1,5 @@
 import { BarChart } from '@mui/x-charts/BarChart'
+import { useNavigate } from 'react-router-dom'
 
 export type WeeklyFlowPoint = {
   week: string
@@ -9,12 +10,15 @@ export type WeeklyFlowPoint = {
 type WeeklyFlowChartProps = {
   series: WeeklyFlowPoint[]
   isLoading?: boolean
+  getPointUrl?: (event: 'opened' | 'merged', week: string) => string
 }
 
 export function WeeklyFlowChart({
   series,
   isLoading = false,
+  getPointUrl,
 }: WeeklyFlowChartProps) {
+  const navigate = useNavigate()
   const visibleSeries = series.slice(-12).map((point) => ({
     ...point,
     weekLabel: formatWeek(point.week),
@@ -55,11 +59,13 @@ export function WeeklyFlowChart({
             yAxis={[{ min: 0, width: 42 }]}
             series={[
               {
+                id: 'opened',
                 dataKey: 'opened',
                 label: 'Opened',
                 color: 'var(--color-chart-start)',
               },
               {
+                id: 'merged',
                 dataKey: 'merged',
                 label: 'Merged',
                 color: 'var(--color-primary)',
@@ -68,7 +74,18 @@ export function WeeklyFlowChart({
             height={300}
             margin={{ top: 20, right: 16, bottom: 12, left: 0 }}
             grid={{ horizontal: true }}
+            onItemClick={(_, item) => {
+              const point = visibleSeries[item.dataIndex]
+
+              if (point && getPointUrl) {
+                const event = item.seriesId === 'merged' ? 'merged' : 'opened'
+                navigate(getPointUrl(event, point.week))
+              }
+            }}
             sx={{
+              '& .MuiBarElement-root': {
+                cursor: getPointUrl ? 'pointer' : 'default',
+              },
               '& .MuiChartsAxis-line, & .MuiChartsAxis-tick': {
                 stroke: 'var(--color-border-strong)',
               },

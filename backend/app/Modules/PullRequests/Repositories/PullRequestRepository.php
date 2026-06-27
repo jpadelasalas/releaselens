@@ -57,14 +57,33 @@ class PullRequestRepository implements PullRequestRepositoryInterface
         }
 
         if (($filters['review_status'] ?? null) === 'waiting') {
+            $this->applyWaitingFilter($query);
+        }
+
+        if (($filters['attention'] ?? false) === true) {
+            $this->applyAttentionFilter($query);
+        }
+
+        if (($filters['state'] ?? null) === 'closed_without_merge') {
             $query
-                ->where('pull_requests.state', 'open')
-                ->where('pull_requests.is_draft', false)
-                ->whereNotExists(
-                    fn (Builder $reviewQuery): Builder => $this->qualifyingReviewQuery(
-                        $reviewQuery
-                    )
-                );
+                ->where('pull_requests.state', 'closed')
+                ->whereNull('pull_requests.merged_at');
+        }
+
+        if (isset($filters['age_bucket'])) {
+            $this->applyAgeBucketFilter($query, $filters['age_bucket']);
+        }
+
+        if (isset($filters['size_bucket'])) {
+            $this->applySizeBucketFilter($query, $filters['size_bucket']);
+        }
+
+        if (isset($filters['event'], $filters['week'])) {
+            $this->applyWeeklyEventFilter(
+                $query,
+                $filters['event'],
+                $filters['week'],
+            );
         }
 
         return $query
@@ -123,5 +142,105 @@ class PullRequestRepository implements PullRequestRepositoryInterface
                         'pull_requests.author_github_user_id',
                     );
             });
+    }
+
+    private function applyWaitingFilter(Builder $query): void
+    {
+        $query
+            ->where('pull_requests.state', 'open')
+            ->where('pull_requests.is_draft', false)
+            ->whereNotExists(
+                fn (Builder $reviewQuery): Builder => $this->qualifyingReviewQuery(
+                    $reviewQuery
+                )
+            );
+    }
+
+    private function applyAttentionFilter(Builder $query): void
+    {
+        $staleBoundary = CarbonImmutable::parse(
+            config('releaselens.demo.anchor_date')
+        )->utc()->subHours(168);
+
+        $query
+            ->where('pull_requests.state', 'open')
+            ->where(function (Builder $attentionQuery) use ($staleBoundary): void {
+                $attentionQuery
+                    ->where(function (Builder $waitingQuery): void {
+                        $waitingQuery
+                            ->where('pull_requests.is_draft', false)
+                            ->whereNotExists(
+                                fn (Builder $reviewQuery): Builder => $this->qualifyingReviewQuery(
+                                    $reviewQuery
+                                )
+                            );
+                    })
+                    ->orWhere(function (Builder $staleQuery) use ($staleBoundary): void {
+                        $staleQuery
+                            ->where('pull_requests.is_draft', false)
+                            ->where('pull_requests.created_at_github', '<', $staleBoundary);
+                    })
+                    ->orWhereRaw(
+                        '(pull_requests.additions + pull_requests.deletions) > 500'
+                    );
+            });
+    }
+
+    private function applyAgeBucketFilter(Builder $query, string $bucket): void
+    {
+        $anchor = CarbonImmutable::parse(
+            config('releaselens.demo.anchor_date')
+        )->utc();
+
+        $query->where('pull_requests.state', 'open');
+
+        match ($bucket) {
+            'under_1_day' => $query->where(
+                'pull_requests.created_at_github',
+                '>=',
+                $anchor->subHours(24),
+            ),
+            '1_to_3_days' => $query
+                ->where('pull_requests.created_at_github', '<', $anchor->subHours(24))
+                ->where('pull_requests.created_at_github', '>=', $anchor->subHours(72)),
+            '3_to_7_days' => $query
+                ->where('pull_requests.created_at_github', '<', $anchor->subHours(72))
+                ->where('pull_requests.created_at_github', '>=', $anchor->subHours(168)),
+            'over_7_days' => $query->where(
+                'pull_requests.created_at_github',
+                '<',
+                $anchor->subHours(168),
+            ),
+        };
+    }
+
+    private function applySizeBucketFilter(Builder $query, string $bucket): void
+    {
+        $sizeExpression = '(pull_requests.additions + pull_requests.deletions)';
+
+        match ($bucket) {
+            'xs' => $query->whereRaw("{$sizeExpression} <= 50"),
+            'small' => $query
+                ->whereRaw("{$sizeExpression} > 50")
+                ->whereRaw("{$sizeExpression} <= 200"),
+            'medium' => $query
+                ->whereRaw("{$sizeExpression} > 200")
+                ->whereRaw("{$sizeExpression} <= 500"),
+            'large' => $query->whereRaw("{$sizeExpression} > 500"),
+        };
+    }
+
+    private function applyWeeklyEventFilter(
+        Builder $query,
+        string $event,
+        string $week
+    ): void {
+        $weekStart = CarbonImmutable::parse($week)->utc()->startOfDay();
+        $weekEnd = $weekStart->addDays(6)->endOfDay();
+        $column = $event === 'merged'
+            ? 'pull_requests.merged_at'
+            : 'pull_requests.created_at_github';
+
+        $query->whereBetween($column, [$weekStart, $weekEnd]);
     }
 }

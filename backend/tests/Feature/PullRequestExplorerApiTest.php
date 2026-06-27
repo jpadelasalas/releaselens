@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -68,6 +69,93 @@ class PullRequestExplorerApiTest extends TestCase
             $summary->json('data.metrics.waiting_for_first_review'),
             $explorer->json('meta.total'),
         );
+    }
+
+    public function test_demo_drill_downs_reconcile_with_analytics(): void
+    {
+        $this->seed(DemoSeeder::class);
+
+        $organizationId = (int) DB::table('organizations')
+            ->where('slug', 'northstar-engineering')
+            ->value('id');
+        $session = [
+            'releaselens.context' => [
+                'type' => 'demo',
+                'session_id' => 'demo-session-id',
+                'organization_id' => $organizationId,
+                'organization_slug' => 'northstar-engineering',
+            ],
+        ];
+        $basePath = "/api/v1/organizations/{$organizationId}";
+
+        $summary = $this->withSession($session)->getJson("{$basePath}/analytics/summary");
+        $distributions = $this->withSession($session)->getJson(
+            "{$basePath}/analytics/distributions"
+        );
+        $trends = $this->withSession($session)->getJson("{$basePath}/analytics/trends");
+
+        $summary->assertOk();
+        $distributions->assertOk();
+        $trends->assertOk();
+
+        $this->assertExplorerTotal(
+            $session,
+            "{$basePath}/pull-requests?state=closed_without_merge",
+            (int) $summary->json('data.metrics.closed_without_merge'),
+        );
+        $this->assertExplorerTotal(
+            $session,
+            "{$basePath}/pull-requests?attention=1",
+            (int) $summary->json('data.metrics.attention_count'),
+        );
+
+        foreach ($distributions->json('data.buckets.open_pr_age') as $bucket) {
+            $this->assertExplorerTotal(
+                $session,
+                "{$basePath}/pull-requests?age_bucket={$bucket['key']}",
+                (int) $bucket['count'],
+            );
+        }
+
+        foreach ($distributions->json('data.buckets.pr_size') as $bucket) {
+            $this->assertExplorerTotal(
+                $session,
+                "{$basePath}/pull-requests?size_bucket={$bucket['key']}",
+                (int) $bucket['count'],
+            );
+        }
+
+        $weeklySeries = $trends->json('data.series.opened_vs_merged_by_week');
+        $openedPoint = collect($weeklySeries)->firstWhere('opened', '>', 0);
+        $mergedPoint = collect($weeklySeries)->firstWhere('merged', '>', 0);
+
+        $this->assertNotNull($openedPoint);
+        $this->assertNotNull($mergedPoint);
+        $this->assertExplorerTotal(
+            $session,
+            "{$basePath}/pull-requests?event=opened&week={$openedPoint['week']}",
+            (int) $openedPoint['opened'],
+        );
+        $this->assertExplorerTotal(
+            $session,
+            "{$basePath}/pull-requests?event=merged&week={$mergedPoint['week']}",
+            (int) $mergedPoint['merged'],
+        );
+    }
+
+    /**
+     * @param  array<string, mixed>  $session
+     */
+    private function assertExplorerTotal(
+        array $session,
+        string $url,
+        int $expected
+    ): void {
+        $response = $this->withSession($session)->getJson($url);
+
+        $response
+            ->assertOk()
+            ->assertJsonPath('meta.total', $expected);
     }
 
     private function organization(): int

@@ -50,6 +50,12 @@ class PullRequestExplorerService
                     'date_from' => $filters['date_from'],
                     'date_to' => $filters['date_to'],
                     'review_status' => $filters['review_status'] ?? null,
+                    'attention' => $filters['attention'] ?? false,
+                    'state' => $filters['state'] ?? null,
+                    'age_bucket' => $filters['age_bucket'] ?? null,
+                    'size_bucket' => $filters['size_bucket'] ?? null,
+                    'event' => $filters['event'] ?? null,
+                    'week' => $filters['week'] ?? null,
                 ],
             ],
         ];

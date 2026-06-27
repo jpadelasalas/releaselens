@@ -31,6 +31,12 @@ const pullRequestExplorerResponseSchema = z.object({
       date_from: z.string(),
       date_to: z.string(),
       review_status: z.string().nullable(),
+      attention: z.boolean(),
+      state: z.string().nullable(),
+      age_bucket: z.string().nullable(),
+      size_bucket: z.string().nullable(),
+      event: z.string().nullable(),
+      week: z.string().nullable(),
     }),
   }),
 })
@@ -45,6 +51,12 @@ export type PullRequestExplorerFilters = {
   date_from?: string
   date_to?: string
   review_status?: 'waiting'
+  attention?: boolean
+  state?: 'closed_without_merge'
+  age_bucket?: 'under_1_day' | '1_to_3_days' | '3_to_7_days' | 'over_7_days'
+  size_bucket?: 'xs' | 'small' | 'medium' | 'large'
+  event?: 'opened' | 'merged'
+  week?: string
   page?: number
   per_page?: number
 }
@@ -53,9 +65,13 @@ export async function getPullRequests(
   organizationId: number,
   filters: PullRequestExplorerFilters,
 ): Promise<PullRequestExplorerResponse> {
+  const params = {
+    ...filters,
+    attention: filters.attention ? 1 : undefined,
+  }
   const response = await api.get<unknown>(
     `/api/v1/organizations/${organizationId}/pull-requests`,
-    { params: filters },
+    { params },
   )
 
   return pullRequestExplorerResponseSchema.parse(response.data)

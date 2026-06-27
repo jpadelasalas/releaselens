@@ -5,7 +5,10 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import { ThemeToggle } from '../../components/theme/ThemeToggle'
 import type { PullRequestRecord } from '../../features/pull-requests/pullRequestApi'
-import { parsePullRequestExplorerFilters } from '../../features/pull-requests/pullRequestExplorerUrl'
+import {
+  getExplorerTitle,
+  parsePullRequestExplorerFilters,
+} from '../../features/pull-requests/pullRequestExplorerUrl'
 import { usePullRequestExplorer } from '../../features/pull-requests/usePullRequestExplorer'
 import { DashboardNav } from '../dashboard/components/DashboardNav'
 
@@ -56,7 +59,7 @@ export function DemoPullRequestExplorerPage() {
               Dashboard
             </Link>
             <p className="eyebrow">Supporting records</p>
-            <h1>Pull requests waiting for review</h1>
+            <h1>{getExplorerTitle(filters)}</h1>
             <p>
               Exact records behind the dashboard metric under the preserved
               repository and date filters.
