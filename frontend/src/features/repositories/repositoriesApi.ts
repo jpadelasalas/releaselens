@@ -14,6 +14,8 @@ export const repositorySchema = z.object({
   default_branch: z.string().nullable(),
   html_url: z.string().nullable(),
   is_archived: z.boolean(),
+  is_accessible: z.boolean(),
+  access_error: z.string().nullable(),
   sync_enabled: z.boolean(),
   sync_status: z.string().min(1),
   last_sync_at: z.string().nullable(),

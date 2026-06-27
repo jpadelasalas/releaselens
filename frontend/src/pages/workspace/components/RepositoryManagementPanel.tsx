@@ -229,6 +229,7 @@ export function RepositoryManagementPanel() {
                     </strong>
                     <span className="text-xs capitalize text-[var(--color-muted)]">
                       {repository.visibility} - {repository.sync_status.replaceAll('_', ' ')}
+                      {!repository.is_accessible ? ' - Action required' : ''}
                     </span>
                   </div>
                 </div>
@@ -259,6 +260,7 @@ export function RepositoryManagementPanel() {
                       disabled={
                         !hasActiveConnection ||
                         !repository.sync_enabled ||
+                        !repository.is_accessible ||
                         isRequesting
                       }
                       onClick={() => void handleSync(repository.id)}

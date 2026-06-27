@@ -38,6 +38,8 @@ class OrganizationRepositoryService
                 'default_branch' => $repository->default_branch,
                 'html_url' => $repository->html_url,
                 'is_archived' => (bool) $repository->is_archived,
+                'is_accessible' => (bool) $repository->is_accessible,
+                'access_error' => $repository->access_error,
                 'sync_enabled' => (bool) $repository->sync_enabled,
                 'sync_status' => $repository->sync_status,
                 'last_sync_at' => $repository->last_sync_at,

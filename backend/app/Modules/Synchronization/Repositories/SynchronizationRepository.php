@@ -3,6 +3,7 @@
 namespace App\Modules\Synchronization\Repositories;
 
 use App\Modules\Synchronization\Contracts\SynchronizationRepositoryInterface;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 
@@ -155,6 +156,7 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
             }
 
             $now = now();
+            $repositoryMetadata = $result['repository'] ?? [];
             DB::table('sync_runs')->where('id', $runId)->update([
                 'status' => 'success',
                 'completed_at' => $now,
@@ -166,12 +168,30 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
                 'rate_limit_reset_at' => $result['rate_limit_reset_at'],
                 'updated_at' => $now,
             ]);
-            DB::table('repositories')->where('id', $run->repository_id)->update([
+            $repositoryValues = [
                 'sync_status' => 'success',
                 'last_sync_at' => $now,
                 'last_successful_sync_at' => $now,
+                'is_accessible' => true,
+                'access_error' => null,
                 'updated_at' => $now,
-            ]);
+            ];
+
+            if (is_array($repositoryMetadata) && isset($repositoryMetadata['id'])) {
+                $repositoryValues = [
+                    ...$repositoryValues,
+                    'name' => $repositoryMetadata['name'],
+                    'full_name' => $repositoryMetadata['full_name'],
+                    'description' => $repositoryMetadata['description'] ?? null,
+                    'visibility' => $repositoryMetadata['visibility']
+                        ?? (($repositoryMetadata['private'] ?? false) ? 'private' : 'public'),
+                    'default_branch' => $repositoryMetadata['default_branch'] ?? null,
+                    'html_url' => $repositoryMetadata['html_url'] ?? null,
+                    'is_archived' => (bool) ($repositoryMetadata['archived'] ?? false),
+                ];
+            }
+
+            DB::table('repositories')->where('id', $run->repository_id)->update($repositoryValues);
         });
     }
 
@@ -206,11 +226,23 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
                 'created_at' => $now,
                 'updated_at' => $now,
             ]);
-            DB::table('repositories')->where('id', $run->repository_id)->update([
+            $repositoryValues = [
                 'sync_status' => $status,
                 'last_sync_at' => $now,
                 'updated_at' => $now,
-            ]);
+            ];
+
+            if (in_array($category, [
+                'not_found',
+                'authentication',
+                'permission',
+                'GITHUB_INSTALLATION_NOT_FOUND',
+            ], true)) {
+                $repositoryValues['is_accessible'] = false;
+                $repositoryValues['access_error'] = $category;
+            }
+
+            DB::table('repositories')->where('id', $run->repository_id)->update($repositoryValues);
         });
     }
 
@@ -270,8 +302,13 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
             $counts['created']++;
         } else {
             $pullRequestId = (int) $existing->id;
-            DB::table('pull_requests')->where('id', $pullRequestId)->update($values);
-            $counts['updated']++;
+
+            if ($this->recordChanged($existing, $values)) {
+                DB::table('pull_requests')->where('id', $pullRequestId)->update($values);
+                $counts['updated']++;
+            } else {
+                $counts['unchanged']++;
+            }
         }
 
         foreach ($item['reviews'] as $review) {
@@ -296,12 +333,21 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
             'github_updated_at' => $review['submitted_at'] ?? null,
             'updated_at' => now(),
         ];
-        $existing = DB::table('pull_request_reviews')->where('github_review_id', $githubId)->exists();
-        DB::table('pull_request_reviews')->updateOrInsert(
-            ['github_review_id' => $githubId],
-            [...$values, 'created_at' => now()],
-        );
-        $counts[$existing ? 'updated' : 'created']++;
+        $existing = DB::table('pull_request_reviews')->where('github_review_id', $githubId)->first();
+
+        if ($existing === null) {
+            DB::table('pull_request_reviews')->insert([
+                'github_review_id' => $githubId,
+                ...$values,
+                'created_at' => now(),
+            ]);
+            $counts['created']++;
+        } elseif ($this->recordChanged($existing, $values)) {
+            DB::table('pull_request_reviews')->where('id', $existing->id)->update($values);
+            $counts['updated']++;
+        } else {
+            $counts['unchanged']++;
+        }
     }
 
     private function upsertGitHubUser(mixed $user): ?int
@@ -312,18 +358,25 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
 
         $githubId = (int) $user['id'];
         $login = (string) ($user['login'] ?? "github-user-{$githubId}");
-        DB::table('github_users')->updateOrInsert(
-            ['github_user_id' => $githubId],
-            [
-                'login' => $login,
-                'type' => (string) ($user['type'] ?? 'User'),
-                'account_type' => $user['type'] ?? null,
-                'is_bot' => ($user['type'] ?? null) === 'Bot' || str_ends_with($login, '[bot]'),
-                'avatar_url' => $user['avatar_url'] ?? null,
-                'updated_at' => now(),
+        $values = [
+            'login' => $login,
+            'type' => (string) ($user['type'] ?? 'User'),
+            'account_type' => $user['type'] ?? null,
+            'is_bot' => ($user['type'] ?? null) === 'Bot' || str_ends_with($login, '[bot]'),
+            'avatar_url' => $user['avatar_url'] ?? null,
+            'updated_at' => now(),
+        ];
+        $existing = DB::table('github_users')->where('github_user_id', $githubId)->first();
+
+        if ($existing === null) {
+            DB::table('github_users')->insert([
+                'github_user_id' => $githubId,
+                ...$values,
                 'created_at' => now(),
-            ],
-        );
+            ]);
+        } elseif ($this->recordChanged($existing, $values)) {
+            DB::table('github_users')->where('id', $existing->id)->update($values);
+        }
 
         return (int) DB::table('github_users')
             ->where('github_user_id', $githubId)
@@ -337,5 +390,40 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
             ->where('status', 'success')
             ->latest('id')
             ->value('cursor_after');
+    }
+
+    /** @param array<string, mixed> $values */
+    private function recordChanged(object $existing, array $values): bool
+    {
+        foreach ($values as $field => $expected) {
+            if ($field === 'updated_at') {
+                continue;
+            }
+
+            $actual = $existing->{$field} ?? null;
+
+            if ($this->comparable($actual) !== $this->comparable($expected)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function comparable(mixed $value): mixed
+    {
+        if ($value instanceof \DateTimeInterface) {
+            return CarbonImmutable::instance($value)->utc()->toIso8601String();
+        }
+
+        if (is_string($value) && preg_match('/^\d{4}-\d{2}-\d{2}[T ]/', $value) === 1) {
+            return CarbonImmutable::parse($value)->utc()->toIso8601String();
+        }
+
+        if (is_bool($value)) {
+            return (int) $value;
+        }
+
+        return $value;
     }
 }

@@ -23,6 +23,8 @@ class OrganizationRepository implements OrganizationRepositoryInterface
                 'default_branch',
                 'html_url',
                 'is_archived',
+                'is_accessible',
+                'access_error',
                 'sync_enabled',
                 'sync_status',
                 'last_sync_at',
@@ -69,6 +71,8 @@ class OrganizationRepository implements OrganizationRepositoryInterface
                     'default_branch' => $repository['default_branch'],
                     'html_url' => $repository['html_url'],
                     'is_archived' => $repository['is_archived'],
+                    'is_accessible' => true,
+                    'access_error' => null,
                     'sync_enabled' => true,
                     'updated_at' => $now,
                 ];

@@ -38,6 +38,8 @@ describe('RepositoryManagementPanel', () => {
           default_branch: 'main',
           html_url: 'https://github.com/acme/api',
           is_archived: false,
+          is_accessible: true,
+          access_error: null,
           sync_enabled: true,
           sync_status: 'never_synced',
           last_sync_at: null,

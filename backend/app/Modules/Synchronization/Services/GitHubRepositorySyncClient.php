@@ -40,6 +40,16 @@ class GitHubRepositorySyncClient implements GitHubRepositorySyncClientInterface
             'rawurlencode',
             explode('/', $repositoryFullName, 2),
         ));
+        $repository = $this->request(
+            $token,
+            rtrim((string) config('releaselens.github.api_url'), '/')
+                ."/repos/{$encodedRepository}",
+        )->json();
+        $currentFullName = (string) ($repository['full_name'] ?? $repositoryFullName);
+        $encodedRepository = implode('/', array_map(
+            'rawurlencode',
+            explode('/', $currentFullName, 2),
+        ));
         $url = rtrim((string) config('releaselens.github.api_url'), '/')
             ."/repos/{$encodedRepository}/pulls";
         $params = [
@@ -115,6 +125,7 @@ class GitHubRepositorySyncClient implements GitHubRepositorySyncClientInterface
         }
 
         return [
+            'repository' => $repository,
             'items' => $items,
             'cursor_after' => $cursorAfter,
             'rate_limit_remaining' => $this->rateLimitRemaining,
@@ -177,7 +188,8 @@ class GitHubRepositorySyncClient implements GitHubRepositorySyncClientInterface
         $status = $response->status();
         $category = match (true) {
             $status === 401 => 'authentication',
-            $status === 403 => 'permission_or_rate_limit',
+            $status === 403 && $this->rateLimitRemaining === 0 => 'rate_limit',
+            $status === 403 => 'permission',
             $status === 404 => 'not_found',
             $status === 429 => 'rate_limit',
             $status >= 500 => 'github_unavailable',
@@ -187,7 +199,7 @@ class GitHubRepositorySyncClient implements GitHubRepositorySyncClientInterface
         throw new SynchronizationException(
             $category,
             "GitHub synchronization request failed with status {$status}.",
-            $status >= 500 || $status === 429,
+            $status >= 500 || $status === 429 || $category === 'rate_limit',
         );
     }
 

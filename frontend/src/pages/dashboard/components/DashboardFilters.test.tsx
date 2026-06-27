@@ -21,6 +21,8 @@ describe('DashboardFilters', () => {
             default_branch: 'main',
             html_url: null,
             is_archived: false,
+            is_accessible: true,
+            access_error: null,
             sync_enabled: true,
             sync_status: 'success',
             last_sync_at: null,

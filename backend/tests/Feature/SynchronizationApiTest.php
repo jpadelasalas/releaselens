@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\User;
 use App\Modules\Synchronization\Contracts\GitHubRepositorySyncClientInterface;
 use App\Modules\Synchronization\Contracts\SynchronizationRepositoryInterface;
+use App\Modules\Synchronization\Exceptions\SynchronizationException;
 use App\Modules\Synchronization\Jobs\SynchronizeRepositoryJob;
 use App\Modules\Synchronization\Services\SynchronizationService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,6 +19,16 @@ class SuccessfulRepositorySyncClient implements GitHubRepositorySyncClientInterf
     public function synchronize(int $installationId, string $repositoryFullName, ?string $cursor): array
     {
         return [
+            'repository' => [
+                'id' => 3001,
+                'name' => 'api-renamed',
+                'full_name' => 'acme/api-renamed',
+                'description' => 'Renamed API repository',
+                'visibility' => 'private',
+                'default_branch' => 'main',
+                'html_url' => 'https://github.com/acme/api-renamed',
+                'archived' => false,
+            ],
             'items' => [[
                 'pull_request' => [
                     'id' => 7001,
@@ -50,6 +61,17 @@ class SuccessfulRepositorySyncClient implements GitHubRepositorySyncClientInterf
             'rate_limit_remaining' => 4990,
             'rate_limit_reset_at' => '2026-06-27T11:00:00Z',
         ];
+    }
+}
+
+class InaccessibleRepositorySyncClient implements GitHubRepositorySyncClientInterface
+{
+    public function synchronize(int $installationId, string $repositoryFullName, ?string $cursor): array
+    {
+        throw new SynchronizationException(
+            'not_found',
+            'GitHub repository is no longer accessible.',
+        );
     }
 }
 
@@ -134,6 +156,59 @@ class SynchronizationApiTest extends TestCase
         $this->assertDatabaseHas('repositories', [
             'id' => $repositoryId,
             'sync_status' => 'success',
+            'full_name' => 'acme/api-renamed',
+            'is_accessible' => true,
+        ]);
+
+        $secondRunId = (int) DB::table('sync_runs')->insertGetId([
+            'repository_id' => $repositoryId,
+            'trigger_type' => 'manual',
+            'status' => 'queued',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        (new SynchronizeRepositoryJob($secondRunId))->handle(
+            app(SynchronizationRepositoryInterface::class),
+            new SuccessfulRepositorySyncClient,
+        );
+
+        $this->assertDatabaseHas('sync_runs', [
+            'id' => $secondRunId,
+            'status' => 'success',
+            'created_count' => 0,
+            'updated_count' => 0,
+            'unchanged_count' => 2,
+        ]);
+        $this->assertDatabaseCount('pull_requests', 1);
+        $this->assertDatabaseCount('pull_request_reviews', 1);
+        $this->assertDatabaseCount('github_users', 2);
+    }
+
+    public function test_permanent_repository_failure_marks_source_inaccessible(): void
+    {
+        [$owner, $organizationId, $repositoryId] = $this->workspace('owner');
+        $runId = (int) DB::table('sync_runs')->insertGetId([
+            'repository_id' => $repositoryId,
+            'trigger_type' => 'manual',
+            'status' => 'queued',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        (new SynchronizeRepositoryJob($runId))->handle(
+            app(SynchronizationRepositoryInterface::class),
+            new InaccessibleRepositorySyncClient,
+        );
+
+        $this->assertDatabaseHas('sync_runs', [
+            'id' => $runId,
+            'status' => 'failed',
+            'error_category' => 'not_found',
+        ]);
+        $this->assertDatabaseHas('repositories', [
+            'id' => $repositoryId,
+            'is_accessible' => false,
+            'access_error' => 'not_found',
         ]);
     }
 
