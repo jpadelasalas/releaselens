@@ -16,6 +16,11 @@ abstract class FakeGitHubAppClient implements GitHubAppClientInterface
     {
         return [];
     }
+
+    public function installationAccessToken(int $installationId): string
+    {
+        return 'test-installation-token';
+    }
 }
 
 class GitHubConnectionApiTest extends TestCase

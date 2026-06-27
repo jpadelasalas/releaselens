@@ -23,6 +23,8 @@ use App\Modules\Repositories\Http\Controllers\AvailableGitHubRepositoriesControl
 use App\Modules\Repositories\Http\Controllers\ImportRepositoriesController;
 use App\Modules\Repositories\Http\Controllers\OrganizationRepositoryController;
 use App\Modules\Repositories\Http\Controllers\UpdateRepositoryMonitoringController;
+use App\Modules\Synchronization\Http\Controllers\ListRepositorySyncRunsController;
+use App\Modules\Synchronization\Http\Controllers\RequestRepositorySyncController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -112,6 +114,18 @@ Route::prefix('v1')
             )
                 ->whereNumber(['org', 'repository'])
                 ->name('repositories.update');
+            Route::post(
+                '/organizations/{org}/repositories/{repository}/sync',
+                RequestRepositorySyncController::class,
+            )
+                ->whereNumber(['org', 'repository'])
+                ->name('repositories.sync');
+            Route::get(
+                '/organizations/{org}/repositories/{repository}/sync-runs',
+                ListRepositorySyncRunsController::class,
+            )
+                ->whereNumber(['org', 'repository'])
+                ->name('repositories.sync-runs.index');
         });
     });
 

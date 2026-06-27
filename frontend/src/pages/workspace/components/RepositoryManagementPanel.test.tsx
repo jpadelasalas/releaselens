@@ -3,14 +3,20 @@ import userEvent from '@testing-library/user-event'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useRepositoryManagementContext } from '../../../features/repositories/useRepositoryManagementContext'
+import { useSynchronizationContext } from '../../../features/synchronization/useSynchronizationContext'
 import { RepositoryManagementPanel } from './RepositoryManagementPanel'
 
 vi.mock(
   '../../../features/repositories/useRepositoryManagementContext',
   () => ({ useRepositoryManagementContext: vi.fn() }),
 )
+vi.mock(
+  '../../../features/synchronization/useSynchronizationContext',
+  () => ({ useSynchronizationContext: vi.fn() }),
+)
 
 const mockedContext = vi.mocked(useRepositoryManagementContext)
+const mockedSyncContext = vi.mocked(useSynchronizationContext)
 const saveSelection = vi.fn()
 const changeMonitoring = vi.fn()
 
@@ -76,6 +82,19 @@ describe('RepositoryManagementPanel', () => {
       saveSelection,
       changeMonitoring,
       refreshAvailable: vi.fn().mockResolvedValue(undefined),
+      clearError: vi.fn(),
+    })
+    mockedSyncContext.mockReturnValue({
+      activeRepositoryId: null,
+      runs: [],
+      canSync: true,
+      isLoadingHistory: false,
+      isRequesting: false,
+      error: null,
+      requestSync: vi.fn().mockResolvedValue(undefined),
+      showHistory: vi.fn(),
+      closeHistory: vi.fn(),
+      refreshHistory: vi.fn().mockResolvedValue(undefined),
       clearError: vi.fn(),
     })
   })

@@ -9,4 +9,6 @@ interface GitHubAppClientInterface
 
     /** @return array<int, array<string, mixed>> */
     public function installationRepositories(int $installationId): array;
+
+    public function installationAccessToken(int $installationId): string;
 }

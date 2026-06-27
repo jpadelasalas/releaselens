@@ -11,6 +11,11 @@ use Tests\TestCase;
 
 class RepositoryDiscoveryGitHubClient implements GitHubAppClientInterface
 {
+    public function installationAccessToken(int $installationId): string
+    {
+        return 'test-installation-token';
+    }
+
     public function installation(int $installationId): array
     {
         return [

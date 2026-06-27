@@ -50,24 +50,10 @@ class GitHubAppClient implements GitHubAppClientInterface
     public function installationRepositories(int $installationId): array
     {
         try {
-            $tokenResponse = Http::baseUrl((string) config('releaselens.github.api_url'))
-                ->accept('application/vnd.github+json')
-                ->withToken($this->appJwt())
-                ->withHeaders($this->standardHeaders())
-                ->post("/app/installations/{$installationId}/access_tokens");
-        } catch (ConnectionException) {
-            $this->throwUnavailable();
+            $token = $this->installationAccessToken($installationId);
+        } catch (GitHubConnectionException $exception) {
+            throw $exception;
         }
-
-        if ($tokenResponse->notFound()) {
-            $this->throwInstallationNotFound();
-        }
-
-        if ($tokenResponse->failed() || ! is_string($tokenResponse->json('token'))) {
-            $this->throwUnavailable();
-        }
-
-        $token = $tokenResponse->json('token');
         $repositories = [];
         $pageLimit = max(
             1,
@@ -106,6 +92,31 @@ class GitHubAppClient implements GitHubAppClientInterface
         }
 
         return $repositories;
+    }
+
+    public function installationAccessToken(int $installationId): string
+    {
+        try {
+            $response = Http::baseUrl((string) config('releaselens.github.api_url'))
+                ->accept('application/vnd.github+json')
+                ->withToken($this->appJwt())
+                ->withHeaders($this->standardHeaders())
+                ->post("/app/installations/{$installationId}/access_tokens");
+        } catch (ConnectionException) {
+            $this->throwUnavailable();
+        }
+
+        if ($response->notFound()) {
+            $this->throwInstallationNotFound();
+        }
+
+        $token = $response->json('token');
+
+        if ($response->failed() || ! is_string($token) || $token === '') {
+            $this->throwUnavailable();
+        }
+
+        return $token;
     }
 
     private function appJwt(): string

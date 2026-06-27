@@ -1,6 +1,7 @@
 import { OrganizationFeatureProvider } from '../../features/organizations/OrganizationFeatureContext'
 import { GitHubConnectionFeatureProvider } from '../../features/github-connection/GitHubConnectionFeatureContext'
 import { RepositoryManagementProvider } from '../../features/repositories/RepositoryManagementContext'
+import { SynchronizationProvider } from '../../features/synchronization/SynchronizationContext'
 import { ConnectedWorkspacePage } from './ConnectedWorkspacePage'
 
 export function ConnectedWorkspaceRoute() {
@@ -8,7 +9,9 @@ export function ConnectedWorkspaceRoute() {
     <OrganizationFeatureProvider>
       <GitHubConnectionFeatureProvider>
         <RepositoryManagementProvider>
-          <ConnectedWorkspacePage />
+          <SynchronizationProvider>
+            <ConnectedWorkspacePage />
+          </SynchronizationProvider>
         </RepositoryManagementProvider>
       </GitHubConnectionFeatureProvider>
     </OrganizationFeatureProvider>

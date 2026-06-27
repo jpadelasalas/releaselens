@@ -14,6 +14,8 @@ return [
         'user_agent' => env('GITHUB_USER_AGENT', 'ReleaseLens/1.0'),
         'state_ttl_minutes' => (int) env('GITHUB_STATE_TTL_MINUTES', 10),
         'repository_page_limit' => (int) env('GITHUB_REPOSITORY_PAGE_LIMIT', 10),
+        'initial_sync_lookback_days' => (int) env('GITHUB_INITIAL_SYNC_LOOKBACK_DAYS', 90),
+        'sync_pull_request_limit' => (int) env('GITHUB_SYNC_PULL_REQUEST_LIMIT', 200),
     ],
 
     'demo' => [

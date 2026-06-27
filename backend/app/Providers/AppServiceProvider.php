@@ -16,6 +16,10 @@ use App\Modules\PullRequests\Contracts\PullRequestRepositoryInterface;
 use App\Modules\PullRequests\Repositories\PullRequestRepository;
 use App\Modules\Repositories\Contracts\OrganizationRepositoryInterface;
 use App\Modules\Repositories\Repositories\OrganizationRepository;
+use App\Modules\Synchronization\Contracts\GitHubRepositorySyncClientInterface;
+use App\Modules\Synchronization\Contracts\SynchronizationRepositoryInterface;
+use App\Modules\Synchronization\Repositories\SynchronizationRepository;
+use App\Modules\Synchronization\Services\GitHubRepositorySyncClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
@@ -36,6 +40,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             GitHubConnectionRepositoryInterface::class,
             GitHubConnectionRepository::class,
+        );
+
+        $this->app->bind(
+            GitHubRepositorySyncClientInterface::class,
+            GitHubRepositorySyncClient::class,
+        );
+
+        $this->app->bind(
+            SynchronizationRepositoryInterface::class,
+            SynchronizationRepository::class,
         );
 
         $this->app->bind(
