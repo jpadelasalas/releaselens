@@ -1,0 +1,107 @@
+name: releaselens
+
+x-app-environment: &app-environment
+  APP_NAME: ReleaseLens
+  APP_ENV: production
+  APP_DEBUG: "false"
+  APP_KEY: ${APP_KEY}
+  APP_URL: ${APP_URL:-http://localhost:8080}
+  CLIENT_URL: ${CLIENT_URL:-http://localhost:8080}
+  LOG_CHANNEL: stderr
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DB_CONNECTION: pgsql
+  DB_HOST: database
+  DB_PORT: 5432
+  DB_DATABASE: ${DB_DATABASE:-releaselens}
+  DB_USERNAME: ${DB_USERNAME:-releaselens}
+  DB_PASSWORD: ${DB_PASSWORD:-releaselens}
+  DB_SSLMODE: disable
+  SESSION_DRIVER: database
+  SESSION_SECURE_COOKIE: ${SESSION_SECURE_COOKIE:-false}
+  SESSION_SAME_SITE: lax
+  CACHE_STORE: database
+  QUEUE_CONNECTION: database
+  DB_QUEUE_RETRY_AFTER: 900
+  GITHUB_APP_ID: ${GITHUB_APP_ID:-}
+  GITHUB_APP_SLUG: ${GITHUB_APP_SLUG:-}
+  GITHUB_APP_PRIVATE_KEY_BASE64: ${GITHUB_APP_PRIVATE_KEY_BASE64:-}
+  GITHUB_API_VERSION: ${GITHUB_API_VERSION:-2026-03-10}
+  GITHUB_USER_AGENT: ReleaseLens/1.0
+  GITHUB_INITIAL_SYNC_LOOKBACK_DAYS: 90
+  GITHUB_SYNC_PULL_REQUEST_LIMIT: 200
+
+x-app-service: &app-service
+  image: releaselens:local
+  build:
+    context: .
+    args:
+      VITE_API_URL: ""
+  environment: *app-environment
+  restart: unless-stopped
+
+services:
+  database:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DB_DATABASE:-releaselens}
+      POSTGRES_USER: ${DB_USERNAME:-releaselens}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-releaselens}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  migrate:
+    <<: *app-service
+    command: ["php", "artisan", "migrate", "--force", "--no-interaction"]
+    depends_on:
+      database:
+        condition: service_healthy
+    restart: "no"
+
+  web:
+    <<: *app-service
+    ports:
+      - "8080:80"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "--silent", "http://localhost/api/v1/health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+
+  worker:
+    <<: *app-service
+    command:
+      - php
+      - artisan
+      - queue:work
+      - database
+      - --queue=default
+      - --sleep=3
+      - --tries=3
+      - --timeout=840
+      - --max-time=3600
+      - --no-interaction
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    init: true
+
+  scheduler:
+    <<: *app-service
+    command: ["php", "artisan", "schedule:work", "--no-interaction"]
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    init: true
+
+volumes:
+  postgres-data:

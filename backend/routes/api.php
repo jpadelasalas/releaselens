@@ -11,6 +11,7 @@ use App\Modules\Identity\Http\Controllers\CurrentUserController;
 use App\Modules\Identity\Http\Controllers\LoginController;
 use App\Modules\Identity\Http\Controllers\LogoutController;
 use App\Modules\Identity\Http\Controllers\RegisterController;
+use App\Modules\Operations\Http\Controllers\HealthController;
 use App\Modules\Organizations\Http\Controllers\ActivateOrganizationController;
 use App\Modules\Organizations\Http\Controllers\AddOrganizationMemberController;
 use App\Modules\Organizations\Http\Controllers\CreateOrganizationController;
@@ -30,6 +31,9 @@ use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Routing\Middleware\SubstituteBindings;
 use Illuminate\Session\Middleware\StartSession;
 use Illuminate\Support\Facades\Route;
+
+Route::get('/v1/health', HealthController::class)
+    ->name('health.readiness');
 
 Route::prefix('v1')
     ->middleware('web')

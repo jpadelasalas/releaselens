@@ -58,3 +58,10 @@ jobs:
         working-directory: frontend
       - run: npm run test:e2e
         working-directory: frontend
+
+  container:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --tag releaselens:ci .
+      - run: docker compose --env-file docker/.env.example config --quiet

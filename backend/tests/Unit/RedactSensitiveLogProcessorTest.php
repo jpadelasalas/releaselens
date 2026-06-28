@@ -5,6 +5,7 @@ namespace Tests\Unit;
 use App\Logging\RedactSensitiveData;
 use App\Logging\RedactSensitiveLogProcessor;
 use DateTimeImmutable;
+use Illuminate\Log\Logger as IlluminateLogger;
 use Monolog\Handler\TestHandler;
 use Monolog\Level;
 use Monolog\Logger;
@@ -17,7 +18,7 @@ class RedactSensitiveLogProcessorTest extends TestCase
     {
         $handler = new TestHandler;
         $logger = new Logger('testing', [$handler]);
-        (new RedactSensitiveData)($logger);
+        (new RedactSensitiveData)(new IlluminateLogger($logger));
 
         $logger->error('Request failed with access_token=github-secret', [
             'Cookie' => 'session=private-session',

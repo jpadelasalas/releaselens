@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AddRequestCorrelationId;
 use App\Http\Middleware\EnsureDemoSessionIsReadOnly;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -14,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        $middleware->append(AddRequestCorrelationId::class);
         $middleware->alias([
             'demo.readonly' => EnsureDemoSessionIsReadOnly::class,
         ]);
@@ -22,4 +24,10 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->shouldRenderJsonWhen(
             fn (Request $request) => $request->is('api/*'),
         );
+        $exceptions->respond(function ($response) {
+            return app(AddRequestCorrelationId::class)->finalize(
+                request(),
+                $response,
+            );
+        });
     })->create();

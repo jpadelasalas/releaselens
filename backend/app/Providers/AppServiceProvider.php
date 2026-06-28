@@ -10,6 +10,8 @@ use App\Modules\GitHub\Contracts\GitHubConnectionRepositoryInterface;
 use App\Modules\GitHub\Repositories\GitHubConnectionRepository;
 use App\Modules\Identity\Contracts\UserRepositoryInterface;
 use App\Modules\Identity\Repositories\UserRepository;
+use App\Modules\Operations\Contracts\HealthCheckInterface;
+use App\Modules\Operations\Services\DatabaseHealthCheck;
 use App\Modules\Organizations\Contracts\OrganizationWorkspaceRepositoryInterface;
 use App\Modules\Organizations\Policies\OrganizationPolicy;
 use App\Modules\Organizations\Repositories\OrganizationWorkspaceRepository;
@@ -77,6 +79,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             OrganizationWorkspaceRepositoryInterface::class,
             OrganizationWorkspaceRepository::class,
+        );
+
+        $this->app->bind(
+            HealthCheckInterface::class,
+            DatabaseHealthCheck::class,
         );
     }
 

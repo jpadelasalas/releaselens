@@ -2,12 +2,20 @@
 
 namespace App\Logging;
 
-use Monolog\Logger;
+use Illuminate\Log\Logger;
+use LogicException;
+use Monolog\Logger as MonologLogger;
 
 class RedactSensitiveData
 {
     public function __invoke(Logger $logger): void
     {
-        $logger->pushProcessor(new RedactSensitiveLogProcessor);
+        $monolog = $logger->getLogger();
+
+        if (! $monolog instanceof MonologLogger) {
+            throw new LogicException('Sensitive log redaction requires a Monolog channel.');
+        }
+
+        $monolog->pushProcessor(new RedactSensitiveLogProcessor);
     }
 }
