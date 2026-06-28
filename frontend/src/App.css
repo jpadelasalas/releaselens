@@ -359,7 +359,7 @@
 .demo-badge {
   background: var(--color-primary-soft);
   border-radius: 999px;
-  color: var(--color-primary);
+  color: var(--color-primary-strong);
   font-size: 12px;
   font-weight: 800;
   padding: 7px 10px;
@@ -509,6 +509,10 @@
   border: 1px solid var(--color-border);
   border-radius: 999px;
   padding: 7px 10px;
+}
+
+.preview-heading .freshness {
+  color: var(--color-primary-strong);
 }
 
 .dashboard-error {

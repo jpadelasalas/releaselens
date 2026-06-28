@@ -11,6 +11,7 @@ use App\Modules\GitHub\Repositories\GitHubConnectionRepository;
 use App\Modules\Identity\Contracts\UserRepositoryInterface;
 use App\Modules\Identity\Repositories\UserRepository;
 use App\Modules\Organizations\Contracts\OrganizationWorkspaceRepositoryInterface;
+use App\Modules\Organizations\Policies\OrganizationPolicy;
 use App\Modules\Organizations\Repositories\OrganizationWorkspaceRepository;
 use App\Modules\PullRequests\Contracts\PullRequestRepositoryInterface;
 use App\Modules\PullRequests\Repositories\PullRequestRepository;
@@ -22,6 +23,7 @@ use App\Modules\Synchronization\Repositories\SynchronizationRepository;
 use App\Modules\Synchronization\Services\GitHubRepositorySyncClient;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -83,6 +85,31 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Gate::define(
+            OrganizationPolicy::VIEW,
+            OrganizationPolicy::class.'@view',
+        );
+        Gate::define(
+            OrganizationPolicy::MANAGE_MEMBERS,
+            OrganizationPolicy::class.'@manageMembers',
+        );
+        Gate::define(
+            OrganizationPolicy::MANAGE_GITHUB,
+            OrganizationPolicy::class.'@manageGitHub',
+        );
+        Gate::define(
+            OrganizationPolicy::DISCONNECT_GITHUB,
+            OrganizationPolicy::class.'@disconnectGitHub',
+        );
+        Gate::define(
+            OrganizationPolicy::MANAGE_REPOSITORIES,
+            OrganizationPolicy::class.'@manageRepositories',
+        );
+        Gate::define(
+            OrganizationPolicy::REQUEST_SYNCHRONIZATION,
+            OrganizationPolicy::class.'@requestSynchronization',
+        );
+
         RateLimiter::for('demo-session', function (Request $request) {
             return Limit::perMinute(20)->by(
                 ($request->hasSession()

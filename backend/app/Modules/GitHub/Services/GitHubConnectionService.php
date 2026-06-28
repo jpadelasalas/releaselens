@@ -6,11 +6,10 @@ use App\Models\User;
 use App\Modules\GitHub\Contracts\GitHubAppClientInterface;
 use App\Modules\GitHub\Contracts\GitHubConnectionRepositoryInterface;
 use App\Modules\GitHub\Exceptions\GitHubConnectionException;
-use App\Modules\Organizations\Contracts\OrganizationWorkspaceRepositoryInterface;
-use App\Modules\Organizations\Enums\OrganizationRole;
-use Illuminate\Auth\Access\AuthorizationException;
+use App\Modules\Organizations\Policies\OrganizationPolicy;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class GitHubConnectionService
@@ -20,16 +19,15 @@ class GitHubConnectionService
     public function __construct(
         private readonly GitHubConnectionRepositoryInterface $connections,
         private readonly GitHubAppClientInterface $github,
-        private readonly OrganizationWorkspaceRepositoryInterface $organizations,
     ) {}
 
     /** @return array{url: string} */
     public function begin(User $user, int $organizationId, Request $request): array
     {
-        $this->assertRole($user, $organizationId, [
-            OrganizationRole::Owner,
-            OrganizationRole::Manager,
-        ]);
+        Gate::forUser($user)->authorize(
+            OrganizationPolicy::MANAGE_GITHUB,
+            $organizationId,
+        );
         $appSlug = trim((string) config('releaselens.github.app_slug'));
 
         if ($appSlug === '') {
@@ -85,10 +83,10 @@ class GitHubConnectionService
         }
 
         $organizationId = (int) $pending['organization_id'];
-        $this->assertRole($user, $organizationId, [
-            OrganizationRole::Owner,
-            OrganizationRole::Manager,
-        ]);
+        Gate::forUser($user)->authorize(
+            OrganizationPolicy::MANAGE_GITHUB,
+            $organizationId,
+        );
         $existingForOrganization = $this->connections
             ->activeForOrganization($organizationId);
 
@@ -149,11 +147,10 @@ class GitHubConnectionService
         int $organizationId,
         Request $request,
     ): ?array {
-        $this->assertRole($user, $organizationId, [
-            OrganizationRole::Owner,
-            OrganizationRole::Manager,
-            OrganizationRole::Viewer,
-        ]);
+        Gate::forUser($user)->authorize(
+            OrganizationPolicy::VIEW,
+            $organizationId,
+        );
         $connection = $this->connections->activeForOrganization($organizationId);
 
         if ($connection === null) {
@@ -205,7 +202,10 @@ class GitHubConnectionService
 
     public function disconnect(User $user, int $organizationId, Request $request): void
     {
-        $this->assertRole($user, $organizationId, [OrganizationRole::Owner]);
+        Gate::forUser($user)->authorize(
+            OrganizationPolicy::DISCONNECT_GITHUB,
+            $organizationId,
+        );
         $connection = $this->connections->activeForOrganization($organizationId);
 
         if ($connection === null) {
@@ -270,29 +270,5 @@ class GitHubConnectionService
         }
 
         return ($permissions['pull_requests'] ?? null) === 'read';
-    }
-
-    /** @param array<int, OrganizationRole> $allowedRoles */
-    private function assertRole(User $user, int $organizationId, array $allowedRoles): void
-    {
-        $membership = $this->organizations->membershipForUser(
-            $organizationId,
-            $user->id,
-        );
-
-        if ($membership === null) {
-            throw (new ModelNotFoundException)->setModel('Organization', [$organizationId]);
-        }
-
-        $allowedValues = array_map(
-            fn (OrganizationRole $role): string => $role->value,
-            $allowedRoles,
-        );
-
-        if (! in_array($membership->role, $allowedValues, true)) {
-            throw new AuthorizationException(
-                'Your workspace role cannot perform this GitHub connection action.',
-            );
-        }
     }
 }

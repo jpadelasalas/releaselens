@@ -5,12 +5,11 @@ namespace App\Modules\Repositories\Services;
 use App\Models\User;
 use App\Modules\GitHub\Contracts\GitHubAppClientInterface;
 use App\Modules\GitHub\Contracts\GitHubConnectionRepositoryInterface;
-use App\Modules\Organizations\Contracts\OrganizationWorkspaceRepositoryInterface;
-use App\Modules\Organizations\Enums\OrganizationRole;
+use App\Modules\Organizations\Policies\OrganizationPolicy;
 use App\Modules\Repositories\Contracts\OrganizationRepositoryInterface;
 use App\Modules\Repositories\Exceptions\RepositoryRuleException;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Gate;
 
 class OrganizationRepositoryService
 {
@@ -18,7 +17,6 @@ class OrganizationRepositoryService
         private readonly OrganizationRepositoryInterface $repositories,
         private readonly GitHubConnectionRepositoryInterface $connections,
         private readonly GitHubAppClientInterface $github,
-        private readonly OrganizationWorkspaceRepositoryInterface $organizations,
     ) {}
 
     /**
@@ -51,7 +49,10 @@ class OrganizationRepositoryService
     /** @return array<int, array<string, mixed>> */
     public function available(User $user, int $organizationId): array
     {
-        $this->assertManager($user, $organizationId);
+        Gate::forUser($user)->authorize(
+            OrganizationPolicy::MANAGE_REPOSITORIES,
+            $organizationId,
+        );
         $connection = $this->activeConnection($organizationId);
         $monitoredIds = $this->repositories->monitoredGitHubIds(
             $organizationId,
@@ -88,7 +89,10 @@ class OrganizationRepositoryService
         int $organizationId,
         array $repositoryIds,
     ): array {
-        $this->assertManager($user, $organizationId);
+        Gate::forUser($user)->authorize(
+            OrganizationPolicy::MANAGE_REPOSITORIES,
+            $organizationId,
+        );
         $connection = $this->activeConnection($organizationId);
         $available = collect(
             $this->github->installationRepositories(
@@ -127,7 +131,10 @@ class OrganizationRepositoryService
         int $repositoryId,
         bool $enabled,
     ): array {
-        $this->assertManager($user, $organizationId);
+        Gate::forUser($user)->authorize(
+            OrganizationPolicy::MANAGE_REPOSITORIES,
+            $organizationId,
+        );
         $repository = $this->repositories->updateMonitoring(
             $organizationId,
             $repositoryId,
@@ -187,29 +194,5 @@ class OrganizationRepositoryService
             'html_url' => $repository['html_url'] ?? null,
             'is_archived' => (bool) ($repository['archived'] ?? false),
         ];
-    }
-
-    private function assertManager(User $user, int $organizationId): void
-    {
-        $membership = $this->organizations->membershipForUser(
-            $organizationId,
-            $user->id,
-        );
-
-        if ($membership === null) {
-            throw (new ModelNotFoundException)->setModel(
-                'Organization',
-                [$organizationId],
-            );
-        }
-
-        if (! in_array($membership->role, [
-            OrganizationRole::Owner->value,
-            OrganizationRole::Manager->value,
-        ], true)) {
-            throw new AuthorizationException(
-                'Only workspace Owners and Managers can manage repositories.',
-            );
-        }
     }
 }

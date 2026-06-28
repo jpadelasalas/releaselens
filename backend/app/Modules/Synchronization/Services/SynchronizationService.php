@@ -3,25 +3,26 @@
 namespace App\Modules\Synchronization\Services;
 
 use App\Models\User;
-use App\Modules\Organizations\Contracts\OrganizationWorkspaceRepositoryInterface;
-use App\Modules\Organizations\Enums\OrganizationRole;
+use App\Modules\Organizations\Policies\OrganizationPolicy;
 use App\Modules\Repositories\Exceptions\RepositoryRuleException;
 use App\Modules\Synchronization\Contracts\SynchronizationRepositoryInterface;
 use App\Modules\Synchronization\Jobs\SynchronizeRepositoryJob;
-use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Gate;
 
 class SynchronizationService
 {
     public function __construct(
         private readonly SynchronizationRepositoryInterface $synchronization,
-        private readonly OrganizationWorkspaceRepositoryInterface $organizations,
     ) {}
 
     /** @return array<string, mixed> */
     public function request(User $user, int $organizationId, int $repositoryId): array
     {
-        $this->assertMemberRole($user, $organizationId, true);
+        Gate::forUser($user)->authorize(
+            OrganizationPolicy::REQUEST_SYNCHRONIZATION,
+            $organizationId,
+        );
         $repository = $this->synchronization->repositoryForOrganization(
             $organizationId,
             $repositoryId,
@@ -66,7 +67,10 @@ class SynchronizationService
     /** @return array<int, array<string, mixed>> */
     public function history(User $user, int $organizationId, int $repositoryId): array
     {
-        $this->assertMemberRole($user, $organizationId, false);
+        Gate::forUser($user)->authorize(
+            OrganizationPolicy::VIEW,
+            $organizationId,
+        );
 
         if ($this->synchronization->repositoryForOrganization($organizationId, $repositoryId) === null) {
             throw (new ModelNotFoundException)->setModel('Repository', [$repositoryId]);
@@ -121,23 +125,5 @@ class SynchronizationService
             'error_category' => $run->error_category,
             'error_summary' => $run->error_summary,
         ];
-    }
-
-    private function assertMemberRole(User $user, int $organizationId, bool $managerRequired): void
-    {
-        $membership = $this->organizations->membershipForUser($organizationId, $user->id);
-
-        if ($membership === null) {
-            throw (new ModelNotFoundException)->setModel('Organization', [$organizationId]);
-        }
-
-        if ($managerRequired && ! in_array($membership->role, [
-            OrganizationRole::Owner->value,
-            OrganizationRole::Manager->value,
-        ], true)) {
-            throw new AuthorizationException(
-                'Only workspace Owners and Managers can request synchronization.',
-            );
-        }
     }
 }

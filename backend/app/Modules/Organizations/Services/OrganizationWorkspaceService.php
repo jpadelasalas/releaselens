@@ -7,9 +7,10 @@ use App\Modules\Identity\Contracts\UserRepositoryInterface;
 use App\Modules\Organizations\Contracts\OrganizationWorkspaceRepositoryInterface;
 use App\Modules\Organizations\Enums\OrganizationRole;
 use App\Modules\Organizations\Exceptions\OrganizationRuleException;
-use Illuminate\Auth\Access\AuthorizationException;
+use App\Modules\Organizations\Policies\OrganizationPolicy;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Gate;
 use Illuminate\Support\Str;
 
 class OrganizationWorkspaceService
@@ -52,6 +53,10 @@ class OrganizationWorkspaceService
         int $organizationId,
         Request $request,
     ): object {
+        Gate::forUser($user)->authorize(
+            OrganizationPolicy::VIEW,
+            $organizationId,
+        );
         $membership = $this->organizations->membershipForUser(
             $organizationId,
             $user->id,
@@ -89,7 +94,10 @@ class OrganizationWorkspaceService
     /** @return array<int, array<string, mixed>> */
     public function listMembers(User $actor, int $organizationId): array
     {
-        $this->assertOwner($actor, $organizationId);
+        Gate::forUser($actor)->authorize(
+            OrganizationPolicy::MANAGE_MEMBERS,
+            $organizationId,
+        );
 
         return $this->organizations->membersForOrganization($organizationId)
             ->map(fn (object $member): array => $this->memberPayload($member))
@@ -104,7 +112,10 @@ class OrganizationWorkspaceService
         OrganizationRole $role,
         Request $request,
     ): array {
-        $this->assertOwner($actor, $organizationId);
+        Gate::forUser($actor)->authorize(
+            OrganizationPolicy::MANAGE_MEMBERS,
+            $organizationId,
+        );
         $targetUser = $this->users->findByNormalizedEmail(
             mb_strtolower(trim($email)),
         );
@@ -155,7 +166,10 @@ class OrganizationWorkspaceService
         OrganizationRole $role,
         Request $request,
     ): array {
-        $this->assertOwner($actor, $organizationId);
+        Gate::forUser($actor)->authorize(
+            OrganizationPolicy::MANAGE_MEMBERS,
+            $organizationId,
+        );
         $member = $this->memberOrFail($organizationId, $membershipId);
 
         if (
@@ -187,7 +201,10 @@ class OrganizationWorkspaceService
         int $membershipId,
         Request $request,
     ): void {
-        $this->assertOwner($actor, $organizationId);
+        Gate::forUser($actor)->authorize(
+            OrganizationPolicy::MANAGE_MEMBERS,
+            $organizationId,
+        );
         $member = $this->memberOrFail($organizationId, $membershipId);
 
         if (
@@ -226,27 +243,6 @@ class OrganizationWorkspaceService
             'role' => $member->role,
             'joined_at' => $member->joined_at,
         ];
-    }
-
-    private function assertOwner(User $actor, int $organizationId): void
-    {
-        $membership = $this->organizations->membershipForUser(
-            $organizationId,
-            $actor->id,
-        );
-
-        if ($membership === null) {
-            throw (new ModelNotFoundException)->setModel(
-                'Organization',
-                [$organizationId],
-            );
-        }
-
-        if ($membership->role !== OrganizationRole::Owner->value) {
-            throw new AuthorizationException(
-                'Only workspace Owners can manage members.',
-            );
-        }
     }
 
     private function memberOrFail(

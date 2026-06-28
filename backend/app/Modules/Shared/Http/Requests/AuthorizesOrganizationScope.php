@@ -2,8 +2,9 @@
 
 namespace App\Modules\Shared\Http\Requests;
 
+use App\Modules\Organizations\Policies\OrganizationPolicy;
 use Carbon\CarbonImmutable;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Gate;
 
 trait AuthorizesOrganizationScope
 {
@@ -18,10 +19,10 @@ trait AuthorizesOrganizationScope
             return true;
         }
 
-        return $this->user() !== null && DB::table('organization_members')
-            ->where('organization_id', $organizationId)
-            ->where('user_id', $this->user()->id)
-            ->exists();
+        return $this->user() !== null && Gate::forUser($this->user())->allows(
+            OrganizationPolicy::VIEW,
+            $organizationId,
+        );
     }
 
     protected function analyticsAnchor(): CarbonImmutable
