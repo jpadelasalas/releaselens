@@ -2,9 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
+use Carbon\CarbonImmutable;
 use Database\Seeders\DemoSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class PullRequestExplorerApiTest extends TestCase
@@ -14,6 +17,44 @@ class PullRequestExplorerApiTest extends TestCase
     private int $githubPullRequestId = 40_000_000;
 
     private int $githubReviewId = 50_000_000;
+
+    public function test_connected_explorer_uses_the_current_time_for_pull_request_age(): void
+    {
+        CarbonImmutable::setTestNow('2026-06-28T12:00:00Z');
+        $organizationId = $this->organization(isDemo: false);
+        $repositoryId = $this->repository($organizationId);
+        $authorId = $this->githubUser('connected-author');
+        $pullRequestId = $this->pullRequest($repositoryId, $authorId, 1);
+        $user = User::query()->create([
+            'name' => 'Connected User',
+            'email' => 'connected@example.com',
+            'normalized_email' => 'connected@example.com',
+            'password' => Hash::make('release-lens-2026'),
+            'timezone' => 'UTC',
+        ]);
+
+        DB::table('organization_members')->insert([
+            'organization_id' => $organizationId,
+            'user_id' => $user->id,
+            'role' => 'viewer',
+            'joined_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        DB::table('pull_requests')
+            ->where('id', $pullRequestId)
+            ->update([
+                'created_at_github' => '2026-06-27T06:00:00Z',
+                'updated_at_github' => '2026-06-27T06:00:00Z',
+            ]);
+
+        $this->actingAs($user)
+            ->getJson("/api/v1/organizations/{$organizationId}/pull-requests")
+            ->assertOk()
+            ->assertJsonPath('data.0.age_hours', 30);
+
+        CarbonImmutable::setTestNow();
+    }
 
     public function test_waiting_filter_reconciles_with_dashboard_metric(): void
     {
@@ -227,13 +268,13 @@ class PullRequestExplorerApiTest extends TestCase
             ->assertJsonPath('meta.total', $expected);
     }
 
-    private function organization(): int
+    private function organization(bool $isDemo = true): int
     {
         return (int) DB::table('organizations')->insertGetId([
             'name' => 'Northstar Engineering',
             'slug' => 'northstar-engineering',
             'timezone' => 'UTC',
-            'is_demo' => true,
+            'is_demo' => $isDemo,
             'created_at' => now(),
             'updated_at' => now(),
         ]);

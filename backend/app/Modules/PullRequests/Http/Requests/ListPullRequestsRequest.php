@@ -84,6 +84,7 @@ class ListPullRequestsRequest extends FormRequest
             'week' => $validated['week'] ?? null,
             'page' => (int) $validated['page'],
             'per_page' => (int) $validated['per_page'],
+            'now' => $this->analyticsAnchor()->toIso8601String(),
         ];
     }
 }

@@ -95,6 +95,11 @@ class AnalyticsApiTest extends TestCase
             );
 
         $this->actingAs($user)
+            ->getJson("/api/v1/organizations/{$organizationId}/analytics/attention")
+            ->assertOk()
+            ->assertJsonPath('data.records.0.age_hours', 30);
+
+        $this->actingAs($user)
             ->getJson("/api/v1/organizations/{$otherOrganizationId}/analytics/summary")
             ->assertForbidden();
 

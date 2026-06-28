@@ -47,7 +47,8 @@ class AnalyticsRequest extends FormRequest
      * @return array{
      *     repository_ids?: array<int, int>,
      *     date_from?: string,
-     *     date_to?: string
+     *     date_to?: string,
+     *     now: string
      * }
      */
     public function filters(): array
@@ -69,6 +70,8 @@ class AnalyticsRequest extends FormRequest
         if (isset($validated['date_to'])) {
             $filters['date_to'] = $validated['date_to'];
         }
+
+        $filters['now'] = $this->analyticsAnchor()->toIso8601String();
 
         return $filters;
     }

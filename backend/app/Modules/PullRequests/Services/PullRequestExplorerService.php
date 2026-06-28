@@ -29,7 +29,7 @@ class PullRequestExplorerService
             )
         );
         $anchor = CarbonImmutable::parse(
-            config('releaselens.demo.anchor_date')
+            $filters['now'] ?? config('releaselens.demo.anchor_date')
         )->utc();
 
         return [

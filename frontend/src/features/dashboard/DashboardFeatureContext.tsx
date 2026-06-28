@@ -1,5 +1,6 @@
 import { type ReactNode, useCallback, useMemo, useState } from 'react'
 import { useScopeContext } from '../../app/scope/useScopeContext'
+import { getApiErrorMessage } from '../../lib/apiError'
 import { useDashboardAnalytics } from '../analytics/useDashboardAnalytics'
 import { useDashboardFilters } from '../analytics/useDashboardFilters'
 import { getMetricDefinitionUrl } from '../metrics/metricDefinitions'
@@ -142,6 +143,12 @@ export function DashboardFeatureProvider({
         isLoading: dashboardQuery.isLoading,
         isError: dashboardQuery.isError,
         isSuccess: dashboardQuery.isSuccess,
+        errorMessage: dashboardQuery.error
+          ? getApiErrorMessage(
+              dashboardQuery.error,
+              'Dashboard analytics could not be loaded.',
+            )
+          : null,
       },
       controls: {
         repositories: repositoriesQuery.data ?? [],
@@ -178,6 +185,7 @@ export function DashboardFeatureProvider({
       dashboardQuery.isFetching,
       dashboardQuery.isLoading,
       dashboardQuery.isSuccess,
+      dashboardQuery.error,
       getAgeBucketUrl,
       getSizeBucketUrl,
       getWeeklyPointUrl,

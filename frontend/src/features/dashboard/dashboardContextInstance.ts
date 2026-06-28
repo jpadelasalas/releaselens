@@ -23,6 +23,7 @@ export type DashboardWorkspaceState = {
   isLoading: boolean
   isError: boolean
   isSuccess: boolean
+  errorMessage: string | null
 }
 
 export type DashboardControlsState = {

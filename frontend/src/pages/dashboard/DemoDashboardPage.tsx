@@ -20,7 +20,8 @@ const WeeklyFlowChart = lazy(() =>
 )
 
 export function DemoDashboardPage() {
-  const { workspace, isLoading, isError, isSuccess } = useDashboardWorkspace()
+  const { workspace, isLoading, isError, isSuccess, errorMessage } =
+    useDashboardWorkspace()
   const controls = useDashboardControls()
   const content = useDashboardContent()
   const isDemo = workspace?.kind === 'demo'
@@ -73,8 +74,8 @@ export function DemoDashboardPage() {
           <DashboardLoadingSkeleton />
         ) : isError ? (
           <section className="retry-panel dashboard-error" role="alert">
-            <strong>Dashboard analytics are unavailable.</strong>
-            <span>Free-tier services may still be waking up. Retry in a moment.</span>
+            <strong>Dashboard analytics could not be loaded.</strong>
+            <span>{errorMessage}</span>
             <button type="button" onClick={controls.retry}>
               Retry Dashboard
             </button>
