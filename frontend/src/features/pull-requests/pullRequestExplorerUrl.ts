@@ -5,43 +5,47 @@ type AgeBucket = NonNullable<PullRequestExplorerFilters['age_bucket']>
 type SizeBucket = NonNullable<PullRequestExplorerFilters['size_bucket']>
 type WeeklyEvent = NonNullable<PullRequestExplorerFilters['event']>
 
-export function buildWaitingForReviewUrl(filters: AnalyticsFilters): string {
-  return buildExplorerUrl(filters, { review_status: 'waiting' })
+export function buildWaitingForReviewUrl(filters: AnalyticsFilters, basePath?: string): string {
+  return buildExplorerUrl(filters, { review_status: 'waiting' }, basePath)
 }
 
-export function buildAttentionUrl(filters: AnalyticsFilters): string {
-  return buildExplorerUrl(filters, { attention: true })
+export function buildAttentionUrl(filters: AnalyticsFilters, basePath?: string): string {
+  return buildExplorerUrl(filters, { attention: true }, basePath)
 }
 
-export function buildClosedWithoutMergeUrl(filters: AnalyticsFilters): string {
-  return buildExplorerUrl(filters, { state: 'closed_without_merge' })
+export function buildClosedWithoutMergeUrl(filters: AnalyticsFilters, basePath?: string): string {
+  return buildExplorerUrl(filters, { state: 'closed_without_merge' }, basePath)
 }
 
 export function buildAgeBucketUrl(
   filters: AnalyticsFilters,
   ageBucket: AgeBucket,
+  basePath?: string,
 ): string {
-  return buildExplorerUrl(filters, { age_bucket: ageBucket })
+  return buildExplorerUrl(filters, { age_bucket: ageBucket }, basePath)
 }
 
 export function buildSizeBucketUrl(
   filters: AnalyticsFilters,
   sizeBucket: SizeBucket,
+  basePath?: string,
 ): string {
-  return buildExplorerUrl(filters, { size_bucket: sizeBucket })
+  return buildExplorerUrl(filters, { size_bucket: sizeBucket }, basePath)
 }
 
 export function buildWeeklyPointUrl(
   filters: AnalyticsFilters,
   event: WeeklyEvent,
   week: string,
+  basePath?: string,
 ): string {
-  return buildExplorerUrl(filters, { event, week })
+  return buildExplorerUrl(filters, { event, week }, basePath)
 }
 
 function buildExplorerUrl(
   filters: AnalyticsFilters,
   drillDown: PullRequestExplorerFilters,
+  basePath = '/demo/pull-requests',
 ): string {
   const searchParams = new URLSearchParams()
 
@@ -63,7 +67,7 @@ function buildExplorerUrl(
     }
   }
 
-  return `/demo/pull-requests?${searchParams.toString()}`
+  return `${basePath}?${searchParams.toString()}`
 }
 
 export function parsePullRequestExplorerFilters(

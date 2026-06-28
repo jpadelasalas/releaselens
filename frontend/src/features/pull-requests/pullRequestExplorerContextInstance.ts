@@ -1,13 +1,13 @@
 import { createContext } from 'react'
 
-import type { DemoScope } from '../../app/scope/scopeTypes'
+import type { WorkspaceScope } from '../../app/scope/scopeTypes'
 import type {
   PullRequestExplorerFilters,
   PullRequestExplorerResponse,
 } from './pullRequestApi'
 
 export interface PullRequestExplorerWorkspaceState {
-  workspace: DemoScope | null
+  workspace: WorkspaceScope | null
   title: string
 }
 

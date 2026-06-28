@@ -1,5 +1,5 @@
 import { createContext } from 'react'
-import type { DemoScope } from '../../app/scope/scopeTypes'
+import type { WorkspaceScope } from '../../app/scope/scopeTypes'
 import type {
   AnalyticsAttentionRecord,
   AnalyticsBucket,
@@ -19,7 +19,7 @@ export type DashboardMetric = {
 }
 
 export type DashboardWorkspaceState = {
-  workspace: DemoScope | null
+  workspace: WorkspaceScope | null
   isLoading: boolean
   isError: boolean
   isSuccess: boolean

@@ -23,6 +23,7 @@ export function DemoDashboardPage() {
   const { workspace, isLoading, isError, isSuccess } = useDashboardWorkspace()
   const controls = useDashboardControls()
   const content = useDashboardContent()
+  const isDemo = workspace?.kind === 'demo'
 
   if (workspace === null) {
     return (
@@ -47,11 +48,14 @@ export function DemoDashboardPage() {
       <section className="dashboard-main">
         <header className="dashboard-header">
           <div>
-            <p className="eyebrow">Demo workspace</p>
+            <p className="eyebrow">
+              {isDemo ? 'Demo workspace' : 'Connected analytics'}
+            </p>
             <h1>{workspace.organization.name}</h1>
             <p>
-              Read-only synthetic data - {workspace.organization.timezone} - Session{' '}
-              {workspace.sessionId.slice(0, 8)}
+              {isDemo
+                ? `Read-only synthetic data - ${workspace.organization.timezone} - Session ${workspace.sessionId.slice(0, 8)}`
+                : `Imported GitHub data - ${workspace.organization.timezone}`}
             </p>
           </div>
           <div className="dashboard-header-actions">
@@ -59,7 +63,9 @@ export function DemoDashboardPage() {
             {isSuccess && (
               <span className="freshness">{content.freshnessLabel}</span>
             )}
-            <span className="demo-badge">Demo read-only</span>
+            <span className="demo-badge">
+              {isDemo ? 'Demo read-only' : 'Private workspace'}
+            </span>
           </div>
         </header>
 

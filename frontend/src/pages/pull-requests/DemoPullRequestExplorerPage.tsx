@@ -15,6 +15,9 @@ export function DemoPullRequestExplorerPage() {
   const { workspace, title } = usePullRequestExplorerWorkspace()
   const { response, isLoading, isError } = usePullRequestExplorerData()
   const { retry, setPage } = usePullRequestExplorerActions()
+  const dashboardPath = workspace?.kind === 'connected'
+    ? '/app/dashboard'
+    : '/demo/dashboard'
 
   if (!workspace) {
     return (
@@ -36,7 +39,7 @@ export function DemoPullRequestExplorerPage() {
           <div>
             <Link
               className="mb-2 inline-flex items-center gap-1 text-sm font-bold text-[var(--color-primary)] no-underline"
-              to="/demo/dashboard"
+              to={dashboardPath}
             >
               <ArrowBackOutlinedIcon fontSize="small" />
               Dashboard
@@ -74,7 +77,7 @@ export function DemoPullRequestExplorerPage() {
             <p className="text-[var(--color-muted)]">
               The current metric filters do not match any records.
             </p>
-            <Link className="primary-action mt-4" to="/demo/dashboard">
+            <Link className="primary-action mt-4" to={dashboardPath}>
               Clear Filters
             </Link>
           </section>

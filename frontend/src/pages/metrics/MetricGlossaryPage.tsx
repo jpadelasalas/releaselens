@@ -14,7 +14,7 @@ export function MetricGlossaryPage() {
   const { scope } = useScopeContext()
   useMetricHashNavigation()
 
-  if (scope.kind !== 'demo') {
+  if (scope.kind !== 'demo' && scope.kind !== 'connected') {
     return (
       <main className="centered-page">
         <p className="eyebrow">Demo session required</p>
@@ -27,6 +27,10 @@ export function MetricGlossaryPage() {
     )
   }
 
+  const dashboardPath = scope.kind === 'connected'
+    ? '/app/dashboard'
+    : '/demo/dashboard'
+
   return (
     <main className="dashboard-shell">
       <DashboardNav activeItem="Metric Glossary" />
@@ -36,7 +40,7 @@ export function MetricGlossaryPage() {
           <div>
             <Link
               className="mb-2 inline-flex items-center gap-1 text-sm font-bold text-[var(--color-primary)] no-underline"
-              to="/demo/dashboard"
+              to={dashboardPath}
             >
               <ArrowBackOutlinedIcon fontSize="small" />
               Dashboard

@@ -38,7 +38,7 @@ test('visitor registers, enters a protected workspace, and signs out', async ({
   browser,
   page,
 }) => {
-  test.setTimeout(60_000)
+  test.setTimeout(90_000)
   const memberPage = await browser.newPage()
   await memberPage.goto('/register')
   await memberPage.getByLabel('Name').fill('Sam Lee')
@@ -93,6 +93,15 @@ test('visitor registers, enters a protected workspace, and signs out', async ({
     page.getByRole('heading', { level: 1, name: 'Platform Team' }),
   ).toBeVisible()
 
+  await page.getByRole('link', { name: 'Dashboard' }).click()
+  await expect(page).toHaveURL(/\/app\/dashboard$/)
+  await expect(
+    page.getByRole('heading', { level: 1, name: 'Platform Team' }),
+  ).toBeVisible()
+  await expect(page.getByText('Private workspace')).toBeVisible()
+  await page.getByRole('link', { name: 'Repositories' }).click()
+  await expect(page).toHaveURL(/\/app$/)
+
   await page.getByLabel('Registered user email').fill('sam@example.com')
   await page.getByRole('button', { name: 'Add Member' }).click()
 
@@ -102,7 +111,10 @@ test('visitor registers, enters a protected workspace, and signs out', async ({
   await expect(
     page.getByRole('heading', { name: 'Change member role?' }),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'Change Role' }).click()
+  await page
+    .getByRole('dialog', { name: 'Change member role?' })
+    .getByRole('button', { name: 'Change Role' })
+    .click()
   await expect(samRow.getByLabel('Role for Sam Lee')).toHaveValue('manager')
 
   const ownerRow = page.getByRole('row').filter({ hasText: 'alex@example.com' })
@@ -110,7 +122,10 @@ test('visitor registers, enters a protected workspace, and signs out', async ({
   await expect(
     page.getByRole('heading', { name: 'Change member role?' }),
   ).toBeVisible()
-  await page.getByRole('button', { name: 'Change Role' }).click()
+  await page
+    .getByRole('dialog', { name: 'Change member role?' })
+    .getByRole('button', { name: 'Change Role' })
+    .click()
   await expect(page.getByRole('alert')).toContainText(
     'Promote another Owner before demoting or removing the final Owner.',
   )

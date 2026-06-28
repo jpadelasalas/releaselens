@@ -29,4 +29,10 @@ describe('pull request explorer URL filters', () => {
 
     expect(url).toContain('age_bucket=over_7_days')
   })
+
+  it('targets the connected explorer when a private route is provided', () => {
+    const url = buildWaitingForReviewUrl({}, '/app/pull-requests')
+
+    expect(url).toBe('/app/pull-requests?review_status=waiting')
+  })
 })

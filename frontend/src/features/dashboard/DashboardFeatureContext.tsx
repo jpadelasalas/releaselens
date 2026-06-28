@@ -1,4 +1,4 @@
-import { type ReactNode, useCallback, useMemo } from 'react'
+import { type ReactNode, useCallback, useMemo, useState } from 'react'
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import { useDashboardAnalytics } from '../analytics/useDashboardAnalytics'
 import { useDashboardFilters } from '../analytics/useDashboardFilters'
@@ -25,10 +25,15 @@ export function DashboardFeatureProvider({
   children,
 }: DashboardFeatureProviderProps) {
   const { scope } = useScopeContext()
-  const workspace = scope.kind === 'demo' ? scope : null
+  const workspace = scope.kind === 'demo' || scope.kind === 'connected' ? scope : null
   const organizationId = workspace?.organization.id ?? null
+  const [connectedAnchor] = useState(() => new Date().toISOString())
+  const explorerPath = scope.kind === 'connected'
+    ? '/app/pull-requests'
+    : '/demo/pull-requests'
+  const glossaryPath = scope.kind === 'connected' ? '/app/metrics' : '/demo/metrics'
   const dashboardFilters = useDashboardFilters(
-    workspace?.demo.anchor_date ?? null,
+    workspace?.kind === 'demo' ? workspace.demo.anchor_date : connectedAnchor,
   )
   const dashboardQuery = useDashboardAnalytics(
     organizationId,
@@ -49,21 +54,23 @@ export function DashboardFeatureProvider({
       buildAgeBucketUrl(
         dashboardFilters.filters,
         bucket.key as 'under_1_day' | '1_to_3_days' | '3_to_7_days' | 'over_7_days',
+        explorerPath,
       ),
-    [dashboardFilters.filters],
+    [dashboardFilters.filters, explorerPath],
   )
   const getSizeBucketUrl = useCallback(
     (bucket: { key: string }) =>
       buildSizeBucketUrl(
         dashboardFilters.filters,
         bucket.key as 'xs' | 'small' | 'medium' | 'large',
+        explorerPath,
       ),
-    [dashboardFilters.filters],
+    [dashboardFilters.filters, explorerPath],
   )
   const getWeeklyPointUrl = useCallback(
     (event: 'opened' | 'merged', week: string) =>
-      buildWeeklyPointUrl(dashboardFilters.filters, event, week),
-    [dashboardFilters.filters],
+      buildWeeklyPointUrl(dashboardFilters.filters, event, week, explorerPath),
+    [dashboardFilters.filters, explorerPath],
   )
 
   const metrics = useMemo<DashboardMetric[]>(
@@ -73,9 +80,9 @@ export function DashboardFeatureProvider({
         label: 'Waiting for review',
         value: rawMetrics ? String(rawMetrics.waiting_for_first_review) : '...',
         detail: 'Open, non-draft PRs without a qualifying human review.',
-        to: buildWaitingForReviewUrl(dashboardFilters.filters),
+        to: buildWaitingForReviewUrl(dashboardFilters.filters, explorerPath),
         actionLabel: 'View waiting pull requests',
-        definitionTo: getMetricDefinitionUrl('waiting-for-review'),
+        definitionTo: getMetricDefinitionUrl('waiting-for-review', glossaryPath),
       },
       {
         id: 'median-first-review',
@@ -86,7 +93,7 @@ export function DashboardFeatureProvider({
         detail: rawMetrics
           ? `${rawMetrics.median_first_review_sample_size} qualifying reviewed PRs.`
           : 'Submitted human review excluding self, bot, pending, and dismissed reviews.',
-        definitionTo: getMetricDefinitionUrl('median-first-review'),
+        definitionTo: getMetricDefinitionUrl('median-first-review', glossaryPath),
       },
       {
         id: 'median-merge-time',
@@ -95,37 +102,37 @@ export function DashboardFeatureProvider({
         detail: rawMetrics
           ? `${rawMetrics.median_merge_sample_size} merged PRs in the active filters.`
           : 'Merged pull requests in the seeded demo window.',
-        definitionTo: getMetricDefinitionUrl('median-merge-time'),
+        definitionTo: getMetricDefinitionUrl('median-merge-time', glossaryPath),
       },
       {
         id: 'large-prs',
         label: 'Large PRs',
         value: largePrBucket ? String(largePrBucket.count) : '...',
         detail: 'Pull requests above 500 changed lines.',
-        to: buildSizeBucketUrl(dashboardFilters.filters, 'large'),
+        to: buildSizeBucketUrl(dashboardFilters.filters, 'large', explorerPath),
         actionLabel: 'View large pull requests',
-        definitionTo: getMetricDefinitionUrl('pr-size'),
+        definitionTo: getMetricDefinitionUrl('pr-size', glossaryPath),
       },
       {
         id: 'closed-without-merge',
         label: 'Closed without merge',
         value: rawMetrics ? String(rawMetrics.closed_without_merge) : '...',
         detail: 'Closed pull requests that were not merged.',
-        to: buildClosedWithoutMergeUrl(dashboardFilters.filters),
+        to: buildClosedWithoutMergeUrl(dashboardFilters.filters, explorerPath),
         actionLabel: 'View closed pull requests',
-        definitionTo: getMetricDefinitionUrl('closed-without-merge'),
+        definitionTo: getMetricDefinitionUrl('closed-without-merge', glossaryPath),
       },
       {
         id: 'attention-count',
         label: 'Attention count',
         value: rawMetrics ? String(rawMetrics.attention_count) : '...',
         detail: 'Open pull requests matching explicit attention rules.',
-        to: buildAttentionUrl(dashboardFilters.filters),
+        to: buildAttentionUrl(dashboardFilters.filters, explorerPath),
         actionLabel: 'View attention records',
-        definitionTo: getMetricDefinitionUrl('attention-count'),
+        definitionTo: getMetricDefinitionUrl('attention-count', glossaryPath),
       },
     ],
-    [dashboardFilters.filters, largePrBucket, rawMetrics],
+    [dashboardFilters.filters, explorerPath, glossaryPath, largePrBucket, rawMetrics],
   )
 
   const value = useMemo(

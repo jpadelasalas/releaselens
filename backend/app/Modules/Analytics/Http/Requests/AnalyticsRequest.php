@@ -2,16 +2,16 @@
 
 namespace App\Modules\Analytics\Http\Requests;
 
-use Carbon\CarbonImmutable;
+use App\Modules\Shared\Http\Requests\AuthorizesOrganizationScope;
 use Illuminate\Foundation\Http\FormRequest;
 
 class AnalyticsRequest extends FormRequest
 {
+    use AuthorizesOrganizationScope;
+
     protected function prepareForValidation(): void
     {
-        $anchor = CarbonImmutable::parse(
-            config('releaselens.demo.anchor_date')
-        )->utc();
+        $anchor = $this->analyticsAnchor();
 
         $this->merge([
             'date_from' => $this->input(
@@ -27,11 +27,7 @@ class AnalyticsRequest extends FormRequest
 
     public function authorize(): bool
     {
-        $context = $this->session()->get('releaselens.context');
-
-        return is_array($context) &&
-            ($context['type'] ?? null) === 'demo' &&
-            (int) ($context['organization_id'] ?? 0) === (int) $this->route('org');
+        return $this->organizationScopeAuthorized();
     }
 
     /**

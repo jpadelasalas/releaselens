@@ -158,6 +158,9 @@ export const metricDefinitions: MetricDefinition[] = [
   },
 ]
 
-export function getMetricDefinitionUrl(id: string): string {
-  return `/demo/metrics#${id}`
+export function getMetricDefinitionUrl(
+  id: string,
+  basePath = '/demo/metrics',
+): string {
+  return `${basePath}#${id}`
 }

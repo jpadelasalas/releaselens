@@ -97,6 +97,36 @@ export const router = createBrowserRouter([
                   }
                 },
               },
+              {
+                path: '/app/dashboard',
+                lazy: async () => {
+                  const { ConnectedDashboardRoute } = await import(
+                    '../pages/dashboard/ConnectedDashboardRoute'
+                  )
+
+                  return {
+                    Component: ConnectedDashboardRoute,
+                    HydrateFallback: ConnectedRouteFallback,
+                  }
+                },
+              },
+              {
+                path: '/app/pull-requests',
+                lazy: async () => {
+                  const { ConnectedPullRequestExplorerRoute } = await import(
+                    '../pages/pull-requests/ConnectedPullRequestExplorerRoute'
+                  )
+
+                  return {
+                    Component: ConnectedPullRequestExplorerRoute,
+                    HydrateFallback: ConnectedRouteFallback,
+                  }
+                },
+              },
+              {
+                path: '/app/metrics',
+                element: <MetricGlossaryRoute />,
+              },
             ],
           },
         ],

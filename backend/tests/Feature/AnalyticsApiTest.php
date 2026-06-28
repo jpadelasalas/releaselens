@@ -2,9 +2,11 @@
 
 namespace Tests\Feature;
 
+use App\Models\User;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 class AnalyticsApiTest extends TestCase
@@ -65,6 +67,40 @@ class AnalyticsApiTest extends TestCase
         $response->assertForbidden();
     }
 
+    public function test_connected_member_reads_only_their_current_workspace_analytics(): void
+    {
+        CarbonImmutable::setTestNow('2026-06-28T12:00:00Z');
+        $user = $this->user('member@example.com');
+        $organizationId = $this->organization('Connected Engineering', 'connected-engineering');
+        $otherOrganizationId = $this->organization('Other Engineering', 'other-engineering');
+        DB::table('organization_members')->insert([
+            'organization_id' => $organizationId,
+            'user_id' => $user->id,
+            'role' => 'viewer',
+            'joined_at' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+        $repositoryId = $this->repository($organizationId);
+        $authorId = $this->githubUser('connected-author');
+        $this->pullRequest($repositoryId, $authorId, 1, '2026-06-27T06:00:00Z');
+
+        $this->actingAs($user)
+            ->getJson("/api/v1/organizations/{$organizationId}/analytics/summary")
+            ->assertOk()
+            ->assertJsonPath('data.metrics.waiting_for_first_review', 1)
+            ->assertJsonPath(
+                'data.applied_filters.date_to',
+                '2026-06-28T23:59:59+00:00',
+            );
+
+        $this->actingAs($user)
+            ->getJson("/api/v1/organizations/{$otherOrganizationId}/analytics/summary")
+            ->assertForbidden();
+
+        CarbonImmutable::setTestNow();
+    }
+
     private function organization(string $name, string $slug): int
     {
         return (int) DB::table('organizations')->insertGetId([
@@ -74,6 +110,17 @@ class AnalyticsApiTest extends TestCase
             'is_demo' => $slug === 'northstar-engineering',
             'created_at' => now(),
             'updated_at' => now(),
+        ]);
+    }
+
+    private function user(string $email): User
+    {
+        return User::query()->create([
+            'name' => 'Analytics User',
+            'email' => $email,
+            'normalized_email' => $email,
+            'password' => Hash::make('release-lens-2026'),
+            'timezone' => 'UTC',
         ]);
     }
 

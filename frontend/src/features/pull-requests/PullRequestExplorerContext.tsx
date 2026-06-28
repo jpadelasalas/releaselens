@@ -8,7 +8,7 @@ import { usePullRequestExplorer } from './usePullRequestExplorer'
 
 export function PullRequestExplorerProvider({ children }: PropsWithChildren) {
   const { scope } = useScopeContext()
-  const workspace = scope.kind === 'demo' ? scope : null
+  const workspace = scope.kind === 'demo' || scope.kind === 'connected' ? scope : null
   const [searchParams, setSearchParams] = useSearchParams()
   const filters = useMemo(
     () => parsePullRequestExplorerFilters(searchParams),

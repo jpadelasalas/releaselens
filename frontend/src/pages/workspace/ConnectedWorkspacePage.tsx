@@ -1,7 +1,8 @@
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined'
+import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useForm } from 'react-hook-form'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 
 import { useAppSelector } from '../../app/store/hooks'
 import { BrandLink } from '../../components/navigation/BrandLink'
@@ -78,6 +79,15 @@ export function ConnectedWorkspacePage() {
               <span className="text-xs text-[var(--color-muted)]">{user?.email}</span>
             </div>
             <ThemeToggle />
+            {activeMembership && (
+              <Link
+                className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-3 text-sm font-bold text-[var(--color-heading)] no-underline"
+                to="/app/dashboard"
+              >
+                <DashboardOutlinedIcon fontSize="small" />
+                Dashboard
+              </Link>
+            )}
             <button
               className="inline-flex min-h-10 items-center gap-2 rounded-md border border-[var(--color-border-strong)] px-3 text-sm font-bold text-[var(--color-heading)]"
               type="button"

@@ -21,6 +21,7 @@ export type ConnectedScope = {
 }
 
 export type AppScope = AnonymousScope | DemoScope | ConnectedScope
+export type WorkspaceScope = DemoScope | ConnectedScope
 
 export type ScopeStorage = {
   read: () => AppScope | null
