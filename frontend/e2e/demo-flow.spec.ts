@@ -106,15 +106,18 @@ test('visitor registers, enters a protected workspace, and signs out', async ({
   await page.getByRole('button', { name: 'Add Member' }).click()
 
   const samRow = page.getByRole('row').filter({ hasText: 'sam@example.com' })
+  const roleDialog = page.getByRole('dialog', {
+    name: 'Change member role?',
+  })
   await expect(samRow).toBeVisible()
   await samRow.getByLabel('Role for Sam Lee').selectOption('manager')
   await expect(
     page.getByRole('heading', { name: 'Change member role?' }),
   ).toBeVisible()
-  await page
-    .getByRole('dialog', { name: 'Change member role?' })
+  await roleDialog
     .getByRole('button', { name: 'Change Role' })
     .click()
+  await expect(roleDialog).not.toBeVisible()
   await expect(samRow.getByLabel('Role for Sam Lee')).toHaveValue('manager')
 
   const ownerRow = page.getByRole('row').filter({ hasText: 'alex@example.com' })
@@ -122,8 +125,7 @@ test('visitor registers, enters a protected workspace, and signs out', async ({
   await expect(
     page.getByRole('heading', { name: 'Change member role?' }),
   ).toBeVisible()
-  await page
-    .getByRole('dialog', { name: 'Change member role?' })
+  await roleDialog
     .getByRole('button', { name: 'Change Role' })
     .click()
   await expect(page.getByRole('alert')).toContainText(

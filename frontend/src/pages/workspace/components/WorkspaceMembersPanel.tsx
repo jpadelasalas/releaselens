@@ -206,11 +206,6 @@ export function WorkspaceMembersPanel() {
       )}
 
       <ConfirmationDialog
-        key={
-          pendingRoleChange
-            ? `role-${pendingRoleChange.member.id}-${pendingRoleChange.role}`
-            : 'role-empty'
-        }
         open={pendingRoleChange !== null}
         title="Change member role?"
         description={
@@ -224,7 +219,6 @@ export function WorkspaceMembersPanel() {
         onConfirm={() => void confirmRoleChange()}
       />
       <ConfirmationDialog
-        key={pendingRemoval ? `remove-${pendingRemoval.id}` : 'remove-empty'}
         open={pendingRemoval !== null}
         title="Remove workspace member?"
         description={

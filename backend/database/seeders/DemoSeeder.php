@@ -71,16 +71,16 @@ class DemoSeeder extends Seeder
                 'Organization: Northstar Engineering'
             );
             $this->command?->line(
-                'Repositories: ' . count($repositories)
+                'Repositories: '.count($repositories)
             );
             $this->command?->line(
-                'Pull requests: ' . $result['pull_requests']
+                'Pull requests: '.$result['pull_requests']
             );
             $this->command?->line(
-                'Reviews: ' . $result['reviews']
+                'Reviews: '.$result['reviews']
             );
             $this->command?->line(
-                'Anchor: ' . $this->anchor->toIso8601String()
+                'Anchor: '.$this->anchor->toIso8601String()
             );
         });
     }
@@ -121,8 +121,8 @@ class DemoSeeder extends Seeder
 
         $repositoryIds = Schema::hasTable('repositories')
             ? DB::table('repositories')
-            ->where('organization_id', $organizationId)
-            ->pluck('id')
+                ->where('organization_id', $organizationId)
+                ->pluck('id')
             : collect();
 
         $pullRequestIds = collect();
@@ -385,8 +385,7 @@ class DemoSeeder extends Seeder
 
             DB::table('github_users')->updateOrInsert(
                 [
-                    'github_user_id' =>
-                    $definition['github_user_id'],
+                    'github_user_id' => $definition['github_user_id'],
                 ],
                 $payload
             );
@@ -432,26 +431,22 @@ class DemoSeeder extends Seeder
             [
                 'github_repository_id' => 9_200_000_001,
                 'name' => 'customer-portal',
-                'description' =>
-                'Customer account and subscription portal.',
+                'description' => 'Customer account and subscription portal.',
             ],
             [
                 'github_repository_id' => 9_200_000_002,
                 'name' => 'billing-api',
-                'description' =>
-                'Billing and payment service API.',
+                'description' => 'Billing and payment service API.',
             ],
             [
                 'github_repository_id' => 9_200_000_003,
                 'name' => 'mobile-shell',
-                'description' =>
-                'Shared mobile application foundation.',
+                'description' => 'Shared mobile application foundation.',
             ],
             [
                 'github_repository_id' => 9_200_000_004,
                 'name' => 'developer-tools',
-                'description' =>
-                'Internal developer productivity utilities.',
+                'description' => 'Internal developer productivity utilities.',
             ],
         ];
 
@@ -466,11 +461,9 @@ class DemoSeeder extends Seeder
                 [
                     'organization_id' => $organizationId,
                     'github_installation_id' => null,
-                    'github_repository_id' =>
-                    $definition['github_repository_id'],
+                    'github_repository_id' => $definition['github_repository_id'],
                     'name' => $definition['name'],
-                    'full_name' =>
-                    'northstar-engineering/' .
+                    'full_name' => 'northstar-engineering/'.
                         $definition['name'],
                     'description' => $definition['description'],
                     'visibility' => 'public',
@@ -480,8 +473,7 @@ class DemoSeeder extends Seeder
                     'sync_enabled' => true,
                     'sync_status' => 'successful',
                     'last_sync_at' => $lastSuccessfulSync,
-                    'last_successful_sync_at' =>
-                    $lastSuccessfulSync,
+                    'last_successful_sync_at' => $lastSuccessfulSync,
                     'created_at' => $this->anchor->subWeeks(20),
                     'updated_at' => $lastSuccessfulSync,
                 ]
@@ -490,8 +482,7 @@ class DemoSeeder extends Seeder
             $repositories[] = [
                 ...$definition,
                 'id' => $repositoryId,
-                'last_successful_sync_at' =>
-                $lastSuccessfulSync,
+                'last_successful_sync_at' => $lastSuccessfulSync,
             ];
         }
 
@@ -499,12 +490,11 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * @param array<int, array<string, mixed>> $repositories
+     * @param  array<int, array<string, mixed>>  $repositories
      * @param array{
      *     developers: array<int, array<string, mixed>>,
      *     bots: array<int, array<string, mixed>>
      * } $actors
-     *
      * @return array{pull_requests: int, reviews: int}
      */
     private function seedPullRequests(
@@ -585,8 +575,7 @@ class DemoSeeder extends Seeder
                 'pull_requests',
                 [
                     'repository_id' => $repository['id'],
-                    'github_pull_request_id' =>
-                    9_300_000_000 + $index,
+                    'github_pull_request_id' => 9_300_000_000 + $index,
                     'number' => 1000 + $index,
                     'title' => $this->pullRequestTitle(
                         $repository['name'],
@@ -597,8 +586,7 @@ class DemoSeeder extends Seeder
                     'is_draft' => $isDraft,
                     'author_github_user_id' => $author['id'],
                     'base_ref' => 'main',
-                    'head_ref' =>
-                    'feature/demo-' . str_pad(
+                    'head_ref' => 'feature/demo-'.str_pad(
                         (string) $index,
                         3,
                         '0',
@@ -606,10 +594,8 @@ class DemoSeeder extends Seeder
                     ),
                     'additions' => $additions,
                     'deletions' => $deletions,
-                    'changed_files' =>
-                    max(1, (int) ceil($changeSize / 80)),
-                    'commits_count' =>
-                    1 + (($index * 5) % 14),
+                    'changed_files' => max(1, (int) ceil($changeSize / 80)),
+                    'commits_count' => 1 + (($index * 5) % 14),
                     'comments_count' => ($index * 3) % 12,
                     'created_at_github' => $createdAt,
                     'updated_at_github' => $updatedAtGitHub,
@@ -673,19 +659,14 @@ class DemoSeeder extends Seeder
         };
 
         $scenario = [
-            'hours_ago' =>
-            1 + (($index * 53) % $hoursAcrossSixteenWeeks),
+            'hours_ago' => 1 + (($index * 53) % $hoursAcrossSixteenWeeks),
             'is_open' => $isOpen,
             'is_draft' => $isDraft,
-            'is_closed_without_merge' =>
-            $isClosedWithoutMerge,
+            'is_closed_without_merge' => $isClosedWithoutMerge,
             'review_mode' => $reviewMode,
-            'review_delay_hours' =>
-            1 + (($index * 7) % 72),
-            'lifecycle_delay_hours' =>
-            12 + (($index * 13) % 240),
-            'change_size' =>
-            20 + (($index * 83) % 900),
+            'review_delay_hours' => 1 + (($index * 7) % 72),
+            'lifecycle_delay_hours' => 12 + (($index * 13) % 240),
+            'change_size' => 20 + (($index * 83) % 900),
         ];
 
         /*
@@ -792,7 +773,7 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * @param array<string, mixed> $author
+     * @param  array<string, mixed>  $author
      * @param array{
      *     developers: array<int, array<string, mixed>>,
      *     bots: array<int, array<string, mixed>>
@@ -903,8 +884,7 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * @param array<int, array<string, mixed>> $developers
-     *
+     * @param  array<int, array<string, mixed>>  $developers
      * @return array<string, mixed>
      */
     private function differentHumanReviewer(
@@ -931,7 +911,7 @@ class DemoSeeder extends Seeder
     }
 
     /**
-     * @param array<int, array<string, mixed>> $repositories
+     * @param  array<int, array<string, mixed>>  $repositories
      */
     private function seedSyncRuns(array $repositories): void
     {
@@ -955,17 +935,14 @@ class DemoSeeder extends Seeder
                     'started_at' => $startedAt,
                     'completed_at' => $completedAt,
                     'cursor_before' => null,
-                    'cursor_after' =>
-                    $this->anchor->toIso8601String(),
+                    'cursor_after' => $this->anchor->toIso8601String(),
                     'created_count' => 48,
                     'updated_count' => 0,
                     'unchanged_count' => 0,
                     'skipped_count' => 0,
                     'failed_count' => 0,
-                    'rate_limit_remaining' =>
-                    4_800 - ($index * 50),
-                    'rate_limit_reset_at' =>
-                    $this->anchor->addHour(),
+                    'rate_limit_remaining' => 4_800 - ($index * 50),
+                    'rate_limit_reset_at' => $this->anchor->addHour(),
                     'error_category' => null,
                     'error_summary' => null,
                     'created_at' => $startedAt,
@@ -1021,7 +998,7 @@ class DemoSeeder extends Seeder
      *
      * Required fields must still match the migration exactly.
      *
-     * @param array<string, mixed> $payload
+     * @param  array<string, mixed>  $payload
      */
     private function insertGetId(
         string $table,
@@ -1045,8 +1022,7 @@ class DemoSeeder extends Seeder
     /**
      * Remove optional payload keys that are not present in a table.
      *
-     * @param array<string, mixed> $payload
-     *
+     * @param  array<string, mixed>  $payload
      * @return array<string, mixed>
      */
     private function filterPayload(
