@@ -10,6 +10,7 @@ export const databasePath = fileURLToPath(
 export const backendEnvironment: NodeJS.ProcessEnv = {
   ...process.env,
   APP_ENV: 'testing',
+  APP_KEY: 'base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
   APP_URL: 'http://localhost:8010',
   CLIENT_URL: 'http://localhost:4173',
   CACHE_STORE: 'array',

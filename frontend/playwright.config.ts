@@ -31,6 +31,7 @@ export default defineConfig({
       env: backendEnvironment,
       url: 'http://localhost:8010',
       reuseExistingServer: false,
+      timeout: 120_000,
     },
     {
       command: 'npm run dev -- --host 127.0.0.1 --port 4173',
@@ -39,6 +40,7 @@ export default defineConfig({
       },
       url: 'http://localhost:4173',
       reuseExistingServer: false,
+      timeout: 120_000,
     },
   ],
 })
