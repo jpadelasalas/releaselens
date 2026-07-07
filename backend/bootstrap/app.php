@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\AddRequestCorrelationId;
 use App\Http\Middleware\EnsureDemoSessionIsReadOnly;
+use App\Http\Middleware\EnsureFeatureEnabled;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->append(AddRequestCorrelationId::class);
         $middleware->alias([
             'demo.readonly' => EnsureDemoSessionIsReadOnly::class,
+            'feature' => EnsureFeatureEnabled::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
