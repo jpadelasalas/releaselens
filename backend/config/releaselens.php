@@ -16,6 +16,8 @@ return [
         'repository_page_limit' => (int) env('GITHUB_REPOSITORY_PAGE_LIMIT', 10),
         'initial_sync_lookback_days' => (int) env('GITHUB_INITIAL_SYNC_LOOKBACK_DAYS', 90),
         'sync_pull_request_limit' => (int) env('GITHUB_SYNC_PULL_REQUEST_LIMIT', 200),
+        'webhook_secret' => env('GITHUB_WEBHOOK_SECRET'),
+        'webhook_max_payload_bytes' => (int) env('GITHUB_WEBHOOK_MAX_PAYLOAD_BYTES', 5_242_880),
     ],
 
     'features' => [
