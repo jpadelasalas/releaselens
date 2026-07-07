@@ -42,7 +42,7 @@ class ReceiveGitHubWebhookController extends Controller
             'queued_at' => now(),
         ]);
 
-        ProcessWebhookDeliveryJob::dispatch($delivery->id);
+        ProcessWebhookDeliveryJob::dispatch($delivery->id, $payload);
 
         return $this->successResponse(data: ['status' => 'accepted'], status: 202);
     }
