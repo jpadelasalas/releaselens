@@ -28,6 +28,7 @@ use App\Modules\Repositories\Http\Controllers\UpdateRepositoryMonitoringControll
 use App\Modules\Synchronization\Http\Controllers\ListRepositorySyncRunsController;
 use App\Modules\Synchronization\Http\Controllers\RequestRepositorySyncController;
 use App\Modules\Webhooks\Http\Controllers\ReceiveGitHubWebhookController;
+use App\Modules\Webhooks\Http\Controllers\WebhookDeliveryController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -136,6 +137,20 @@ Route::prefix('v1')
             )
                 ->whereNumber(['org', 'repository'])
                 ->name('repositories.sync-runs.index');
+
+            Route::prefix('/organizations/{org}/webhook-deliveries')
+                ->whereNumber('org')
+                ->middleware('feature:webhooks')
+                ->controller(WebhookDeliveryController::class)
+                ->group(function (): void {
+                    Route::get('/', 'index')->name('webhook-deliveries.index');
+                    Route::get('/{delivery}', 'show')
+                        ->whereNumber('delivery')
+                        ->name('webhook-deliveries.show');
+                    Route::post('/{delivery}/replay', 'replay')
+                        ->whereNumber('delivery')
+                        ->name('webhook-deliveries.replay');
+                });
         });
     });
 

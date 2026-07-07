@@ -16,6 +16,7 @@ import { useOrganizationFeatureContext } from '../../features/organizations/useO
 import { WorkspaceMembersPanel } from './components/WorkspaceMembersPanel'
 import { GitHubConnectionPanel } from './components/GitHubConnectionPanel'
 import { RepositoryManagementPanel } from './components/RepositoryManagementPanel'
+import { EventHealthPanel } from './components/EventHealthPanel'
 
 export function ConnectedWorkspacePage() {
   const navigate = useNavigate()
@@ -208,6 +209,7 @@ export function ConnectedWorkspacePage() {
         </div>
         {activeMembership && <GitHubConnectionPanel />}
         {activeMembership && <RepositoryManagementPanel />}
+        {activeMembership && <EventHealthPanel />}
         <WorkspaceMembersPanel />
       </section>
     </main>
