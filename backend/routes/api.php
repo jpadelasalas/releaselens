@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\DemoSessionController;
 use App\Http\Middleware\EnsureDemoSessionIsReadOnly;
+use App\Http\Middleware\VerifyGitHubWebhookSignature;
 use App\Modules\Analytics\Http\Controllers\OrganizationAnalyticsController;
 use App\Modules\GitHub\Http\Controllers\DisconnectGitHubConnectionController;
 use App\Modules\GitHub\Http\Controllers\GitHubConnectionCallbackController;
@@ -26,6 +27,7 @@ use App\Modules\Repositories\Http\Controllers\OrganizationRepositoryController;
 use App\Modules\Repositories\Http\Controllers\UpdateRepositoryMonitoringController;
 use App\Modules\Synchronization\Http\Controllers\ListRepositorySyncRunsController;
 use App\Modules\Synchronization\Http\Controllers\RequestRepositorySyncController;
+use App\Modules\Webhooks\Http\Controllers\ReceiveGitHubWebhookController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Routing\Middleware\SubstituteBindings;
@@ -34,6 +36,10 @@ use Illuminate\Support\Facades\Route;
 
 Route::get('/v1/health', HealthController::class)
     ->name('health.readiness');
+
+Route::post('/v1/github/webhooks', ReceiveGitHubWebhookController::class)
+    ->middleware(['feature:webhooks', VerifyGitHubWebhookSignature::class])
+    ->name('github.webhooks.receive');
 
 Route::prefix('v1')
     ->middleware('web')
