@@ -18,6 +18,15 @@ return [
         'sync_pull_request_limit' => (int) env('GITHUB_SYNC_PULL_REQUEST_LIMIT', 200),
     ],
 
+    'features' => [
+        'webhooks' => (bool) env('FEATURE_WEBHOOKS', false),
+        'releases' => (bool) env('FEATURE_RELEASES', false),
+        'deployments' => (bool) env('FEATURE_DEPLOYMENTS', false),
+        'notifications' => (bool) env('FEATURE_NOTIFICATIONS', false),
+        'incidents' => (bool) env('FEATURE_INCIDENTS', false),
+        'ai' => (bool) env('FEATURE_AI', false),
+    ],
+
     'demo' => [
         'organization_slug' => env(
             'DEMO_ORGANIZATION_SLUG',
