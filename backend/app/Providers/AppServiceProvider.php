@@ -25,6 +25,7 @@ use App\Modules\Synchronization\Repositories\SynchronizationRepository;
 use App\Modules\Synchronization\Services\GitHubRepositorySyncClient;
 use App\Modules\Webhooks\Contracts\WebhookDeliveryRepositoryInterface;
 use App\Modules\Webhooks\Repositories\WebhookDeliveryRepository;
+use App\Modules\Webhooks\Support\WebhookEventHandlerRegistry;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -92,6 +93,8 @@ class AppServiceProvider extends ServiceProvider
             WebhookDeliveryRepositoryInterface::class,
             WebhookDeliveryRepository::class,
         );
+
+        $this->app->singleton(WebhookEventHandlerRegistry::class);
     }
 
     /**

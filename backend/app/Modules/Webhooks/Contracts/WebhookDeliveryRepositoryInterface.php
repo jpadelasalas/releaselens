@@ -10,6 +10,8 @@ interface WebhookDeliveryRepositoryInterface
 {
     public function findByGitHubDeliveryId(string $githubDeliveryId): ?object;
 
+    public function findById(int $id): ?object;
+
     /**
      * @param  array<string, mixed>  $attributes
      */

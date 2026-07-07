@@ -17,6 +17,11 @@ class WebhookDeliveryRepository implements WebhookDeliveryRepositoryInterface
             ->first();
     }
 
+    public function findById(int $id): ?object
+    {
+        return DB::table('webhook_deliveries')->find($id);
+    }
+
     public function create(array $attributes): object
     {
         $now = now();
