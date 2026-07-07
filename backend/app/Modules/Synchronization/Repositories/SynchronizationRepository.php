@@ -77,6 +77,93 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
         });
     }
 
+    public function repositoryByGitHubId(int $githubRepositoryId): ?object
+    {
+        return DB::table('repositories')
+            ->where('github_repository_id', $githubRepositoryId)
+            ->first();
+    }
+
+    public function upsertPullRequestFromWebhook(int $repositoryId, array $pullRequestPayload): ?object
+    {
+        $githubId = (int) ($pullRequestPayload['id'] ?? 0);
+
+        if ($githubId <= 0) {
+            return null;
+        }
+
+        $authorId = $this->upsertGitHubUser($pullRequestPayload['user'] ?? null);
+        $values = [
+            'repository_id' => $repositoryId,
+            'number' => (int) $pullRequestPayload['number'],
+            'title' => (string) $pullRequestPayload['title'],
+            'html_url' => $pullRequestPayload['html_url'] ?? null,
+            'state' => (string) $pullRequestPayload['state'],
+            'is_draft' => (bool) ($pullRequestPayload['draft'] ?? false),
+            'author_github_user_id' => $authorId,
+            'base_ref' => (string) ($pullRequestPayload['base']['ref'] ?? ''),
+            'head_ref' => (string) ($pullRequestPayload['head']['ref'] ?? ''),
+            'additions' => (int) ($pullRequestPayload['additions'] ?? 0),
+            'deletions' => (int) ($pullRequestPayload['deletions'] ?? 0),
+            'changed_files' => (int) ($pullRequestPayload['changed_files'] ?? 0),
+            'commits_count' => (int) ($pullRequestPayload['commits'] ?? 0),
+            'comments_count' => (int) ($pullRequestPayload['comments'] ?? 0),
+            'created_at_github' => $pullRequestPayload['created_at'],
+            'updated_at_github' => $pullRequestPayload['updated_at'] ?? null,
+            'closed_at' => $pullRequestPayload['closed_at'] ?? null,
+            'merged_at' => $pullRequestPayload['merged_at'] ?? null,
+            'updated_at' => now(),
+        ];
+        $existing = DB::table('pull_requests')->where('github_pull_request_id', $githubId)->first();
+
+        if ($existing === null) {
+            $pullRequestId = (int) DB::table('pull_requests')->insertGetId([
+                'github_pull_request_id' => $githubId,
+                ...$values,
+                'created_at' => now(),
+            ]);
+        } else {
+            $pullRequestId = (int) $existing->id;
+
+            if ($this->isAtLeastAsRecent($existing->updated_at_github, $pullRequestPayload)) {
+                DB::table('pull_requests')->where('id', $pullRequestId)->update($values);
+            }
+        }
+
+        return DB::table('pull_requests')->find($pullRequestId);
+    }
+
+    public function upsertReviewFromWebhook(int $pullRequestId, array $reviewPayload): void
+    {
+        $githubId = (int) ($reviewPayload['id'] ?? 0);
+
+        if ($githubId <= 0) {
+            return;
+        }
+
+        $values = [
+            'pull_request_id' => $pullRequestId,
+            'reviewer_github_user_id' => $this->upsertGitHubUser($reviewPayload['user'] ?? null),
+            'state' => strtolower((string) ($reviewPayload['state'] ?? 'commented')),
+            'submitted_at' => $reviewPayload['submitted_at'] ?? null,
+            'github_updated_at' => $reviewPayload['submitted_at'] ?? null,
+            'updated_at' => now(),
+        ];
+        $existing = DB::table('pull_request_reviews')->where('github_review_id', $githubId)->first();
+
+        if ($existing === null) {
+            DB::table('pull_request_reviews')->insert([
+                'github_review_id' => $githubId,
+                ...$values,
+                'created_at' => now(),
+            ]);
+
+            return;
+        }
+
+        DB::table('pull_request_reviews')->where('id', $existing->id)->update($values);
+    }
+
     public function scheduledCandidates(): Collection
     {
         return DB::table('repositories')
@@ -381,6 +468,23 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
         return (int) DB::table('github_users')
             ->where('github_user_id', $githubId)
             ->value('id');
+    }
+
+    /**
+     * @param  array<string, mixed>  $incomingPayload
+     */
+    private function isAtLeastAsRecent(mixed $storedUpdatedAt, array $incomingPayload): bool
+    {
+        $incomingUpdatedAt = $incomingPayload['updated_at'] ?? $incomingPayload['created_at'] ?? null;
+
+        if ($incomingUpdatedAt === null || $storedUpdatedAt === null) {
+            return true;
+        }
+
+        $incoming = CarbonImmutable::parse($incomingUpdatedAt)->utc();
+        $stored = CarbonImmutable::parse($storedUpdatedAt)->utc();
+
+        return ! $incoming->lessThan($stored);
     }
 
     private function latestSuccessfulCursor(int $repositoryId): ?string
