@@ -23,6 +23,8 @@ use App\Modules\Synchronization\Contracts\GitHubRepositorySyncClientInterface;
 use App\Modules\Synchronization\Contracts\SynchronizationRepositoryInterface;
 use App\Modules\Synchronization\Repositories\SynchronizationRepository;
 use App\Modules\Synchronization\Services\GitHubRepositorySyncClient;
+use App\Modules\Webhooks\Contracts\WebhookDeliveryRepositoryInterface;
+use App\Modules\Webhooks\Repositories\WebhookDeliveryRepository;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Gate;
@@ -84,6 +86,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             HealthCheckInterface::class,
             DatabaseHealthCheck::class,
+        );
+
+        $this->app->bind(
+            WebhookDeliveryRepositoryInterface::class,
+            WebhookDeliveryRepository::class,
         );
     }
 
