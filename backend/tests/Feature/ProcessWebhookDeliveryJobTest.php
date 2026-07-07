@@ -36,18 +36,22 @@ class ProcessWebhookDeliveryJobTest extends TestCase
 
     public function test_an_allowlisted_event_with_no_registered_handler_is_dead_lettered(): void
     {
-        // 'installation' is allowlisted (WebhookEventAllowlist) but has no
-        // handler registered until T1.5 - exercises the registry's own
-        // "handler_not_implemented" branch rather than a real handler's.
+        // Uses a fresh, empty registry (not the app-wide singleton) so this
+        // test exercises the registry's own "handler_not_implemented"
+        // branch regardless of how many real handlers are registered.
         $deliveries = $this->deliveries();
         $delivery = $deliveries->create([
             'github_delivery_id' => 'delivery-no-handler',
-            'event_name' => 'installation',
-            'action_name' => 'created',
+            'event_name' => 'pull_request',
+            'action_name' => 'opened',
             'payload_sha256' => hash('sha256', '{}'),
         ]);
 
-        $this->runJob($delivery->id);
+        (new ProcessWebhookDeliveryJob($delivery->id))->handle(
+            $deliveries,
+            app(WebhookEventAllowlist::class),
+            new WebhookEventHandlerRegistry,
+        );
 
         $updated = $deliveries->findById($delivery->id);
         $this->assertSame('dead_lettered', $updated->status);

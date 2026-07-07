@@ -164,6 +164,34 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
         DB::table('pull_request_reviews')->where('id', $existing->id)->update($values);
     }
 
+    public function updateRepositoryMetadataFromWebhook(int $repositoryId, array $repositoryPayload): void
+    {
+        $values = ['updated_at' => now()];
+
+        if (isset($repositoryPayload['name'])) {
+            $values['name'] = (string) $repositoryPayload['name'];
+        }
+
+        if (isset($repositoryPayload['full_name'])) {
+            $values['full_name'] = (string) $repositoryPayload['full_name'];
+        }
+
+        if (array_key_exists('archived', $repositoryPayload)) {
+            $values['is_archived'] = (bool) $repositoryPayload['archived'];
+        }
+
+        DB::table('repositories')->where('id', $repositoryId)->update($values);
+    }
+
+    public function markRepositoryAccessibility(int $repositoryId, bool $isAccessible, ?string $accessError): void
+    {
+        DB::table('repositories')->where('id', $repositoryId)->update([
+            'is_accessible' => $isAccessible,
+            'access_error' => $accessError,
+            'updated_at' => now(),
+        ]);
+    }
+
     public function scheduledCandidates(): Collection
     {
         return DB::table('repositories')

@@ -24,8 +24,12 @@ use App\Modules\Synchronization\Contracts\SynchronizationRepositoryInterface;
 use App\Modules\Synchronization\Repositories\SynchronizationRepository;
 use App\Modules\Synchronization\Services\GitHubRepositorySyncClient;
 use App\Modules\Webhooks\Contracts\WebhookDeliveryRepositoryInterface;
+use App\Modules\Webhooks\Handlers\InstallationRepositoriesWebhookHandler;
+use App\Modules\Webhooks\Handlers\InstallationWebhookHandler;
+use App\Modules\Webhooks\Handlers\PingWebhookHandler;
 use App\Modules\Webhooks\Handlers\PullRequestReviewWebhookHandler;
 use App\Modules\Webhooks\Handlers\PullRequestWebhookHandler;
+use App\Modules\Webhooks\Handlers\RepositoryWebhookHandler;
 use App\Modules\Webhooks\Repositories\WebhookDeliveryRepository;
 use App\Modules\Webhooks\Support\WebhookEventHandlerRegistry;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -144,7 +148,11 @@ class AppServiceProvider extends ServiceProvider
         });
 
         $webhookHandlers = $this->app->make(WebhookEventHandlerRegistry::class);
+        $webhookHandlers->register('ping', PingWebhookHandler::class);
         $webhookHandlers->register('pull_request', PullRequestWebhookHandler::class);
         $webhookHandlers->register('pull_request_review', PullRequestReviewWebhookHandler::class);
+        $webhookHandlers->register('installation', InstallationWebhookHandler::class);
+        $webhookHandlers->register('installation_repositories', InstallationRepositoriesWebhookHandler::class);
+        $webhookHandlers->register('repository', RepositoryWebhookHandler::class);
     }
 }

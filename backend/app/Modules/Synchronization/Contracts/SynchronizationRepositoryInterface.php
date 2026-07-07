@@ -24,6 +24,13 @@ interface SynchronizationRepositoryInterface
      */
     public function upsertReviewFromWebhook(int $pullRequestId, array $reviewPayload): void;
 
+    /**
+     * @param  array<string, mixed>  $repositoryPayload
+     */
+    public function updateRepositoryMetadataFromWebhook(int $repositoryId, array $repositoryPayload): void;
+
+    public function markRepositoryAccessibility(int $repositoryId, bool $isAccessible, ?string $accessError): void;
+
     /** @return array{run: object, created: bool} */
     public function createOrGetActiveRun(
         int $organizationId,

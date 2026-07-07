@@ -10,6 +10,12 @@ interface GitHubConnectionRepositoryInterface
 
     public function activeByInstallationId(int $installationId): ?object;
 
+    public function markSuspendedByInstallationId(int $installationId): void;
+
+    public function markUnsuspendedByInstallationId(int $installationId): void;
+
+    public function markDisconnectedByInstallationId(int $installationId): void;
+
     /** @param array<string, mixed> $metadata */
     public function connect(int $organizationId, int $installationId, array $metadata): object;
 
