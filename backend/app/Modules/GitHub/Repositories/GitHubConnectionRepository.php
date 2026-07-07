@@ -32,6 +32,41 @@ class GitHubConnectionRepository implements GitHubConnectionRepositoryInterface
             ->first();
     }
 
+    public function markSuspendedByInstallationId(int $installationId): void
+    {
+        DB::table('github_installations')
+            ->where('github_installation_id', $installationId)
+            ->update(['suspended_at' => now(), 'updated_at' => now()]);
+    }
+
+    public function markUnsuspendedByInstallationId(int $installationId): void
+    {
+        DB::table('github_installations')
+            ->where('github_installation_id', $installationId)
+            ->update(['suspended_at' => null, 'updated_at' => now()]);
+    }
+
+    public function markDisconnectedByInstallationId(int $installationId): void
+    {
+        DB::transaction(function () use ($installationId): void {
+            $installation = DB::table('github_installations')
+                ->where('github_installation_id', $installationId)
+                ->first();
+
+            if ($installation === null) {
+                return;
+            }
+
+            DB::table('github_installations')
+                ->where('id', $installation->id)
+                ->update(['disconnected_at' => now(), 'updated_at' => now()]);
+
+            DB::table('repositories')
+                ->where('github_installation_id', $installation->id)
+                ->update(['sync_enabled' => false, 'updated_at' => now()]);
+        });
+    }
+
     public function connect(int $organizationId, int $installationId, array $metadata): object
     {
         $now = now();
