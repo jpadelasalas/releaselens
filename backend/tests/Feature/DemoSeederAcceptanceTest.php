@@ -64,6 +64,70 @@ class DemoSeederAcceptanceTest extends TestCase
         );
     }
 
+    public function test_demo_seed_includes_v2_webhook_delivery_and_reconciliation_scenarios(): void
+    {
+        $this->seed(DemoSeeder::class);
+
+        $recovered = DB::table('webhook_deliveries')
+            ->where('github_delivery_id', 'demo-delivery-recovered-0001')
+            ->first();
+        $this->assertNotNull($recovered);
+        $this->assertSame('processed', $recovered->status);
+        $this->assertSame(
+            2,
+            DB::table('webhook_processing_attempts')
+                ->where('webhook_delivery_id', $recovered->id)
+                ->count(),
+        );
+        $this->assertSame(
+            'failed',
+            DB::table('webhook_processing_attempts')
+                ->where('webhook_delivery_id', $recovered->id)
+                ->where('attempt_number', 1)
+                ->value('status'),
+        );
+        $this->assertSame(
+            'succeeded',
+            DB::table('webhook_processing_attempts')
+                ->where('webhook_delivery_id', $recovered->id)
+                ->where('attempt_number', 2)
+                ->value('status'),
+        );
+
+        $deadLettered = DB::table('webhook_deliveries')
+            ->where('github_delivery_id', 'demo-delivery-dead-lettered-0001')
+            ->first();
+        $this->assertNotNull($deadLettered);
+        $this->assertSame('dead_lettered', $deadLettered->status);
+
+        $processed = DB::table('webhook_deliveries')
+            ->where('github_delivery_id', 'demo-delivery-processed-0001')
+            ->first();
+        $this->assertNotNull($processed);
+        $this->assertSame('processed', $processed->status);
+
+        $this->assertSame(
+            1,
+            DB::table('sync_runs')
+                ->where('trigger_type', 'reconciliation')
+                ->where('updated_count', 2)
+                ->count(),
+        );
+    }
+
+    public function test_reseeding_the_demo_does_not_duplicate_or_fail_on_webhook_deliveries(): void
+    {
+        $this->seed(DemoSeeder::class);
+        $this->seed(DemoSeeder::class);
+
+        $this->assertSame(
+            1,
+            DB::table('webhook_deliveries')
+                ->where('github_delivery_id', 'demo-delivery-recovered-0001')
+                ->count(),
+        );
+    }
+
     private function datasetFingerprint(): string
     {
         $repositories = DB::table('repositories')

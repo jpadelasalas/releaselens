@@ -65,6 +65,8 @@ class DemoSeeder extends Seeder
 
             $this->seedSyncRuns($repositories);
 
+            $this->seedWebhookDemoData($organizationId, $repositories);
+
             $this->command?->newLine();
             $this->command?->info('ReleaseLens demo data created.');
             $this->command?->line(
@@ -173,6 +175,12 @@ class DemoSeeder extends Seeder
 
             DB::table('sync_runs')
                 ->whereIn('repository_id', $repositoryIds)
+                ->delete();
+        }
+
+        if (Schema::hasTable('webhook_deliveries')) {
+            DB::table('webhook_deliveries')
+                ->where('organization_id', $organizationId)
                 ->delete();
         }
 
@@ -949,6 +957,127 @@ class DemoSeeder extends Seeder
                     'updated_at' => $completedAt,
                 ])
             );
+        }
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $repositories
+     */
+    private function seedWebhookDemoData(int $organizationId, array $repositories): void
+    {
+        if (! Schema::hasTable('webhook_deliveries')) {
+            return;
+        }
+
+        $repository = $repositories[0];
+
+        // A delivery that failed once (transient) and succeeded on retry.
+        $recoveredReceivedAt = $this->anchor->subHours(2);
+        $recoveredId = $this->insertGetId('webhook_deliveries', [
+            'organization_id' => $organizationId,
+            'repository_id' => $repository['id'],
+            'github_delivery_id' => 'demo-delivery-recovered-0001',
+            'event_name' => 'pull_request',
+            'action_name' => 'synchronize',
+            'payload_sha256' => hash('sha256', 'demo-recovered-payload'),
+            'payload_storage_mode' => 'metadata_only',
+            'status' => 'processed',
+            'received_at' => $recoveredReceivedAt,
+            'queued_at' => $recoveredReceivedAt,
+            'processed_at' => $recoveredReceivedAt->addSeconds(45),
+            'created_at' => $recoveredReceivedAt,
+            'updated_at' => $recoveredReceivedAt->addSeconds(45),
+        ]);
+
+        if (Schema::hasTable('webhook_processing_attempts')) {
+            $this->insertGetId('webhook_processing_attempts', [
+                'webhook_delivery_id' => $recoveredId,
+                'attempt_number' => 1,
+                'status' => 'failed',
+                'started_at' => $recoveredReceivedAt,
+                'completed_at' => $recoveredReceivedAt->addSeconds(5),
+                'next_retry_at' => $recoveredReceivedAt->addSeconds(30),
+                'error_category' => 'transient',
+                'error_summary' => 'GitHub API request timed out.',
+                'created_at' => $recoveredReceivedAt,
+                'updated_at' => $recoveredReceivedAt->addSeconds(5),
+            ]);
+            $this->insertGetId('webhook_processing_attempts', [
+                'webhook_delivery_id' => $recoveredId,
+                'attempt_number' => 2,
+                'status' => 'succeeded',
+                'started_at' => $recoveredReceivedAt->addSeconds(30),
+                'completed_at' => $recoveredReceivedAt->addSeconds(45),
+                'next_retry_at' => null,
+                'error_category' => null,
+                'error_summary' => null,
+                'created_at' => $recoveredReceivedAt->addSeconds(30),
+                'updated_at' => $recoveredReceivedAt->addSeconds(45),
+            ]);
+        }
+
+        // A delivery that permanently failed and is awaiting operator replay.
+        $deadLetteredAt = $this->anchor->subHour();
+        $deadLetteredId = $this->insertGetId('webhook_deliveries', [
+            'organization_id' => $organizationId,
+            'repository_id' => $repository['id'],
+            'github_delivery_id' => 'demo-delivery-dead-lettered-0001',
+            'event_name' => 'pull_request_review',
+            'action_name' => 'submitted',
+            'payload_sha256' => hash('sha256', 'demo-dead-lettered-payload'),
+            'payload_storage_mode' => 'metadata_only',
+            'status' => 'dead_lettered',
+            'error_category' => 'validation',
+            'error_summary' => 'The pull_request_review webhook payload is missing required fields.',
+            'received_at' => $deadLetteredAt,
+            'created_at' => $deadLetteredAt,
+            'updated_at' => $deadLetteredAt,
+        ]);
+
+        if (Schema::hasTable('webhook_processing_attempts')) {
+            $this->insertGetId('webhook_processing_attempts', [
+                'webhook_delivery_id' => $deadLetteredId,
+                'attempt_number' => 1,
+                'status' => 'failed',
+                'started_at' => $deadLetteredAt,
+                'completed_at' => $deadLetteredAt,
+                'next_retry_at' => null,
+                'error_category' => 'validation',
+                'error_summary' => 'The pull_request_review webhook payload is missing required fields.',
+                'created_at' => $deadLetteredAt,
+                'updated_at' => $deadLetteredAt,
+            ]);
+        }
+
+        // A routine, successfully processed delivery.
+        $processedAt = $this->anchor->subMinutes(20);
+        $this->insertGetId('webhook_deliveries', [
+            'organization_id' => $organizationId,
+            'repository_id' => $repository['id'],
+            'github_delivery_id' => 'demo-delivery-processed-0001',
+            'event_name' => 'pull_request',
+            'action_name' => 'opened',
+            'payload_sha256' => hash('sha256', 'demo-processed-payload'),
+            'payload_storage_mode' => 'metadata_only',
+            'status' => 'processed',
+            'received_at' => $processedAt,
+            'queued_at' => $processedAt,
+            'processed_at' => $processedAt->addSeconds(2),
+            'created_at' => $processedAt,
+            'updated_at' => $processedAt->addSeconds(2),
+        ]);
+
+        // Retag one already-seeded sync run as a reconciliation correction
+        // rather than inserting a fifth row: V1BaselineSnapshotTest pins
+        // sync_runs to exactly one row per demo repository.
+        if (Schema::hasTable('sync_runs')) {
+            DB::table('sync_runs')
+                ->where('repository_id', $repository['id'])
+                ->update([
+                    'trigger_type' => 'reconciliation',
+                    'updated_count' => 2,
+                    'updated_at' => $this->anchor,
+                ]);
         }
     }
 
