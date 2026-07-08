@@ -5,12 +5,26 @@ namespace App\Modules\Webhooks\Contracts;
 use App\Modules\Webhooks\Enums\WebhookDeliveryStatus;
 use App\Modules\Webhooks\Enums\WebhookProcessingAttemptStatus;
 use Carbon\CarbonImmutable;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Collection;
 
 interface WebhookDeliveryRepositoryInterface
 {
     public function findByGitHubDeliveryId(string $githubDeliveryId): ?object;
 
     public function findById(int $id): ?object;
+
+    public function findForOrganization(int $organizationId, int $id): ?object;
+
+    /**
+     * @param  array<string, mixed>  $filters
+     */
+    public function paginateForOrganization(int $organizationId, array $filters, int $perPage): LengthAwarePaginator;
+
+    /**
+     * @return Collection<int, object>
+     */
+    public function attemptsForDelivery(int $deliveryId): Collection;
 
     /**
      * @param  array<string, mixed>  $attributes

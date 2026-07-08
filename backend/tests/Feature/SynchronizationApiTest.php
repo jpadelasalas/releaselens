@@ -75,6 +75,59 @@ class InaccessibleRepositorySyncClient implements GitHubRepositorySyncClientInte
     }
 }
 
+class MalformedItemRepositorySyncClient implements GitHubRepositorySyncClientInterface
+{
+    public function synchronize(int $installationId, string $repositoryFullName, ?string $cursor): array
+    {
+        return [
+            'repository' => [],
+            'items' => [[
+                'pull_request' => ['id' => 0, 'number' => 0, 'title' => 'Missing GitHub id'],
+                'reviews' => [],
+            ]],
+            'cursor_after' => '2026-06-27T10:00:00Z',
+            'rate_limit_remaining' => 4990,
+            'rate_limit_reset_at' => '2026-06-27T11:00:00Z',
+        ];
+    }
+}
+
+class StalePullRequestRepositorySyncClient implements GitHubRepositorySyncClientInterface
+{
+    public function synchronize(int $installationId, string $repositoryFullName, ?string $cursor): array
+    {
+        return [
+            'repository' => [],
+            'items' => [[
+                'pull_request' => [
+                    'id' => 9001,
+                    'number' => 7,
+                    'title' => 'Stale cached title',
+                    'html_url' => 'https://github.com/acme/api/pull/7',
+                    'state' => 'open',
+                    'draft' => false,
+                    'user' => ['id' => 601, 'login' => 'author', 'type' => 'User'],
+                    'base' => ['ref' => 'main'],
+                    'head' => ['ref' => 'feature/reconcile'],
+                    'additions' => 1,
+                    'deletions' => 1,
+                    'changed_files' => 1,
+                    'commits' => 1,
+                    'comments' => 0,
+                    'created_at' => '2026-06-25T00:00:00Z',
+                    'updated_at' => '2026-06-25T00:00:00Z',
+                    'closed_at' => null,
+                    'merged_at' => null,
+                ],
+                'reviews' => [],
+            ]],
+            'cursor_after' => '2026-06-25T00:00:00Z',
+            'rate_limit_remaining' => 4990,
+            'rate_limit_reset_at' => '2026-06-27T11:00:00Z',
+        ];
+    }
+}
+
 class SynchronizationApiTest extends TestCase
 {
     use RefreshDatabase;
@@ -204,12 +257,107 @@ class SynchronizationApiTest extends TestCase
             'id' => $runId,
             'status' => 'failed',
             'error_category' => 'not_found',
+            'inaccessible_count' => 1,
         ]);
         $this->assertDatabaseHas('repositories', [
             'id' => $repositoryId,
             'is_accessible' => false,
             'access_error' => 'not_found',
         ]);
+    }
+
+    public function test_malformed_source_items_are_counted_as_unsupported_not_unchanged(): void
+    {
+        [, , $repositoryId] = $this->workspace('owner');
+        $runId = (int) DB::table('sync_runs')->insertGetId([
+            'repository_id' => $repositoryId,
+            'trigger_type' => 'manual',
+            'status' => 'queued',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        (new SynchronizeRepositoryJob($runId))->handle(
+            app(SynchronizationRepositoryInterface::class),
+            new MalformedItemRepositorySyncClient,
+        );
+
+        $this->assertDatabaseHas('sync_runs', [
+            'id' => $runId,
+            'status' => 'success',
+            'created_count' => 0,
+            'unchanged_count' => 0,
+            'unsupported_count' => 1,
+        ]);
+        $this->assertDatabaseCount('pull_requests', 0);
+    }
+
+    public function test_reconciliation_does_not_regress_a_pull_request_a_webhook_updated_more_recently(): void
+    {
+        [, , $repositoryId] = $this->workspace('owner');
+        $synchronization = app(SynchronizationRepositoryInterface::class);
+
+        $synchronization->upsertPullRequestFromWebhook($repositoryId, [
+            'id' => 9001,
+            'number' => 7,
+            'title' => 'Newer title applied by webhook',
+            'html_url' => 'https://github.com/acme/api/pull/7',
+            'state' => 'open',
+            'draft' => false,
+            'user' => ['id' => 601, 'login' => 'author', 'type' => 'User'],
+            'base' => ['ref' => 'main'],
+            'head' => ['ref' => 'feature/reconcile'],
+            'additions' => 5,
+            'deletions' => 2,
+            'changed_files' => 2,
+            'commits' => 3,
+            'comments' => 1,
+            'created_at' => '2026-06-25T00:00:00Z',
+            'updated_at' => '2026-06-27T12:00:00Z',
+            'closed_at' => null,
+            'merged_at' => null,
+        ]);
+
+        $runId = (int) DB::table('sync_runs')->insertGetId([
+            'repository_id' => $repositoryId,
+            'trigger_type' => 'reconciliation',
+            'status' => 'queued',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        // Reconciliation fetches an older cached snapshot of the same PR.
+        (new SynchronizeRepositoryJob($runId))->handle(
+            $synchronization,
+            new StalePullRequestRepositorySyncClient,
+        );
+
+        $this->assertDatabaseHas('pull_requests', [
+            'github_pull_request_id' => 9001,
+            'title' => 'Newer title applied by webhook',
+        ]);
+        $this->assertDatabaseHas('sync_runs', [
+            'id' => $runId,
+            'status' => 'success',
+            'unchanged_count' => 1,
+            'updated_count' => 0,
+        ]);
+    }
+
+    public function test_reconcile_enabled_repositories_queues_a_reconciliation_run(): void
+    {
+        Queue::fake();
+        $this->workspace('owner');
+
+        $count = app(SynchronizationService::class)
+            ->reconcileEnabledRepositories();
+
+        $this->assertSame(1, $count);
+        $this->assertDatabaseHas('sync_runs', [
+            'trigger_type' => 'reconciliation',
+            'status' => 'queued',
+        ]);
+        Queue::assertPushed(SynchronizeRepositoryJob::class, 1);
     }
 
     public function test_scheduler_queues_enabled_repositories_once(): void
