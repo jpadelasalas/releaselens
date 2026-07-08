@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import {
+  getSyncHealth,
   getWebhookDelivery,
   getWebhookDeliveries,
   replayWebhookDelivery,
@@ -38,6 +39,20 @@ export function useWebhookDelivery(
       return getWebhookDelivery(organizationId, deliveryId)
     },
     enabled: organizationId !== null && deliveryId !== null,
+  })
+}
+
+export function useSyncHealth(organizationId: number | null) {
+  return useQuery({
+    queryKey: ['sync-health', organizationId],
+    queryFn: () => {
+      if (organizationId === null) {
+        throw new Error('Organization id is required to load sync health.')
+      }
+
+      return getSyncHealth(organizationId)
+    },
+    enabled: organizationId !== null,
   })
 }
 

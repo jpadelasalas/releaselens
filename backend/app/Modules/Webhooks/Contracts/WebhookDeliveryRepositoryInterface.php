@@ -27,6 +27,16 @@ interface WebhookDeliveryRepositoryInterface
     public function attemptsForDelivery(int $deliveryId): Collection;
 
     /**
+     * @return array<string, mixed>
+     */
+    public function healthSummaryForOrganization(int $organizationId): array;
+
+    /**
+     * @return Collection<int, array<string, mixed>>
+     */
+    public function repositoryDeliveryHealth(int $organizationId, int $silentThresholdHours = 24): Collection;
+
+    /**
      * @param  array<string, mixed>  $attributes
      */
     public function create(array $attributes): object;

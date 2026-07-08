@@ -54,11 +54,35 @@ const webhookDeliveryDetailResponseSchema = z.object({
   data: webhookDeliveryDetailSchema,
 })
 
+export const repositoryDeliveryHealthSchema = z.object({
+  repository_id: z.number().int().positive(),
+  full_name: z.string().min(1),
+  last_delivery_received_at: z.string().nullable(),
+  dead_letter_count: z.number().int().nonnegative(),
+  status: z.enum(['unknown', 'healthy', 'degraded']),
+})
+
+export const syncHealthSchema = z.object({
+  last_delivery_received_at: z.string().nullable(),
+  dead_letter_count: z.number().int().nonnegative(),
+  failure_rate: z.number().nullable(),
+  failure_rate_sample_size: z.number().int().nonnegative(),
+  average_processing_lag_seconds: z.number().int().nullable(),
+  last_successful_reconciliation_at: z.string().nullable(),
+  reconciliation_corrections: z.number().int().nonnegative(),
+  repositories: z.array(repositoryDeliveryHealthSchema),
+})
+
+const syncHealthResponseSchema = z.object({
+  data: syncHealthSchema,
+})
+
 export type WebhookDelivery = z.infer<typeof webhookDeliverySchema>
 export type WebhookDeliveryDetail = z.infer<typeof webhookDeliveryDetailSchema>
 export type WebhookDeliveryListResponse = z.infer<
   typeof webhookDeliveryListResponseSchema
 >
+export type SyncHealth = z.infer<typeof syncHealthSchema>
 
 export type WebhookDeliveryFilters = {
   status?: string
@@ -97,4 +121,14 @@ export async function replayWebhookDelivery(
   await api.post(
     `/api/v1/organizations/${organizationId}/webhook-deliveries/${deliveryId}/replay`,
   )
+}
+
+export async function getSyncHealth(
+  organizationId: number,
+): Promise<SyncHealth> {
+  const response = await api.get<unknown>(
+    `/api/v1/organizations/${organizationId}/sync-health`,
+  )
+
+  return syncHealthResponseSchema.parse(response.data).data
 }
