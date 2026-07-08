@@ -5,9 +5,16 @@ import { useAppSelector } from '../../../app/store/hooks'
 import { getApiErrorMessage } from '../../../lib/apiError'
 import {
   useReplayWebhookDelivery,
+  useSyncHealth,
   useWebhookDelivery,
   useWebhookDeliveries,
 } from '../../../features/event-health/useEventHealth'
+
+const REPOSITORY_STATUS_LABEL: Record<string, string> = {
+  unknown: 'Unknown',
+  healthy: 'Healthy',
+  degraded: 'Degraded',
+}
 
 const REPLAYABLE_STATUSES = new Set(['retryable_failed', 'dead_lettered'])
 
@@ -22,6 +29,7 @@ export function EventHealthPanel() {
   const { data, isLoading, isError } = useWebhookDeliveries(organizationId, {
     status: statusFilter || undefined,
   })
+  const { data: health } = useSyncHealth(organizationId)
   const { data: detail } = useWebhookDelivery(
     organizationId,
     selectedDeliveryId,
@@ -52,6 +60,62 @@ export function EventHealthPanel() {
           original identity.
         </p>
       </div>
+
+      {health && (
+        <div className="mt-4 grid gap-3 sm:grid-cols-4">
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+            <span className="block text-xs text-[var(--color-muted)]">Failure rate</span>
+            <strong className="block text-lg text-[var(--color-heading)]">
+              {health.failure_rate === null
+                ? 'N/A'
+                : `${Math.round(health.failure_rate * 100)}%`}
+            </strong>
+            <span className="text-xs text-[var(--color-subtle)]">
+              of last {health.failure_rate_sample_size} deliveries
+            </span>
+          </div>
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+            <span className="block text-xs text-[var(--color-muted)]">Dead-lettered</span>
+            <strong className="block text-lg text-[var(--color-heading)]">
+              {health.dead_letter_count}
+            </strong>
+          </div>
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+            <span className="block text-xs text-[var(--color-muted)]">Processing lag</span>
+            <strong className="block text-lg text-[var(--color-heading)]">
+              {health.average_processing_lag_seconds === null
+                ? 'N/A'
+                : `${health.average_processing_lag_seconds}s`}
+            </strong>
+          </div>
+          <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-3">
+            <span className="block text-xs text-[var(--color-muted)]">
+              Reconciliation corrections
+            </span>
+            <strong className="block text-lg text-[var(--color-heading)]">
+              {health.reconciliation_corrections}
+            </strong>
+            <span className="text-xs text-[var(--color-subtle)]">
+              {health.last_successful_reconciliation_at
+                ? `Last run ${new Date(health.last_successful_reconciliation_at).toLocaleString()}`
+                : 'No reconciliation run yet'}
+            </span>
+          </div>
+        </div>
+      )}
+
+      {health && health.repositories.length > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {health.repositories.map((repository) => (
+            <span
+              key={repository.repository_id}
+              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--color-border-strong)] px-3 py-1 text-xs font-bold text-[var(--color-heading)]"
+            >
+              {repository.full_name}: {REPOSITORY_STATUS_LABEL[repository.status] ?? repository.status}
+            </span>
+          ))}
+        </div>
+      )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
         <label

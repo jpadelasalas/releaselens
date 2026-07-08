@@ -31,6 +31,11 @@ interface SynchronizationRepositoryInterface
 
     public function markRepositoryAccessibility(int $repositoryId, bool $isAccessible, ?string $accessError): void;
 
+    /**
+     * @return array<string, mixed>
+     */
+    public function reconciliationHealthForOrganization(int $organizationId): array;
+
     /** @return array{run: object, created: bool} */
     public function createOrGetActiveRun(
         int $organizationId,

@@ -199,6 +199,22 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
         ]);
     }
 
+    public function reconciliationHealthForOrganization(int $organizationId): array
+    {
+        $reconciliationRuns = DB::table('sync_runs')
+            ->join('repositories', 'repositories.id', '=', 'sync_runs.repository_id')
+            ->where('repositories.organization_id', $organizationId)
+            ->where('sync_runs.trigger_type', 'reconciliation');
+
+        return [
+            'last_successful_reconciliation_at' => (clone $reconciliationRuns)
+                ->where('sync_runs.status', 'success')
+                ->max('sync_runs.completed_at'),
+            'reconciliation_corrections' => (int) (clone $reconciliationRuns)
+                ->sum('sync_runs.updated_count'),
+        ];
+    }
+
     public function scheduledCandidates(): Collection
     {
         return DB::table('repositories')

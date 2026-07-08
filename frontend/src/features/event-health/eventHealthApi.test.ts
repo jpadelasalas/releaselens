@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  syncHealthSchema,
   webhookDeliveryDetailSchema,
   webhookDeliverySchema,
 } from './eventHealthApi'
@@ -53,6 +54,29 @@ describe('event health schemas', () => {
 
     expect(detail.attempts).toHaveLength(1)
     expect(detail.attempts[0]?.status).toBe('failed')
+  })
+
+  it('parses a sync health summary', () => {
+    const health = syncHealthSchema.parse({
+      last_delivery_received_at: '2026-07-01T00:00:00Z',
+      dead_letter_count: 1,
+      failure_rate: 0.5,
+      failure_rate_sample_size: 2,
+      average_processing_lag_seconds: 3,
+      last_successful_reconciliation_at: null,
+      reconciliation_corrections: 0,
+      repositories: [
+        {
+          repository_id: 1,
+          full_name: 'acme/widgets',
+          last_delivery_received_at: null,
+          dead_letter_count: 0,
+          status: 'unknown',
+        },
+      ],
+    })
+
+    expect(health.repositories[0]?.status).toBe('unknown')
   })
 
   it('rejects an unknown status value', () => {

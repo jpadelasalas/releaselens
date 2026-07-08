@@ -28,6 +28,7 @@ use App\Modules\Repositories\Http\Controllers\UpdateRepositoryMonitoringControll
 use App\Modules\Synchronization\Http\Controllers\ListRepositorySyncRunsController;
 use App\Modules\Synchronization\Http\Controllers\RequestRepositorySyncController;
 use App\Modules\Webhooks\Http\Controllers\ReceiveGitHubWebhookController;
+use App\Modules\Webhooks\Http\Controllers\ShowSyncHealthController;
 use App\Modules\Webhooks\Http\Controllers\WebhookDeliveryController;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
@@ -151,6 +152,14 @@ Route::prefix('v1')
                         ->whereNumber('delivery')
                         ->name('webhook-deliveries.replay');
                 });
+
+            Route::get(
+                '/organizations/{org}/sync-health',
+                ShowSyncHealthController::class,
+            )
+                ->whereNumber('org')
+                ->middleware('feature:webhooks')
+                ->name('sync-health.show');
         });
     });
 
