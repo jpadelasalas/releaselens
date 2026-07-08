@@ -92,45 +92,52 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
             return null;
         }
 
-        $authorId = $this->upsertGitHubUser($pullRequestPayload['user'] ?? null);
-        $values = [
-            'repository_id' => $repositoryId,
-            'number' => (int) $pullRequestPayload['number'],
-            'title' => (string) $pullRequestPayload['title'],
-            'html_url' => $pullRequestPayload['html_url'] ?? null,
-            'state' => (string) $pullRequestPayload['state'],
-            'is_draft' => (bool) ($pullRequestPayload['draft'] ?? false),
-            'author_github_user_id' => $authorId,
-            'base_ref' => (string) ($pullRequestPayload['base']['ref'] ?? ''),
-            'head_ref' => (string) ($pullRequestPayload['head']['ref'] ?? ''),
-            'additions' => (int) ($pullRequestPayload['additions'] ?? 0),
-            'deletions' => (int) ($pullRequestPayload['deletions'] ?? 0),
-            'changed_files' => (int) ($pullRequestPayload['changed_files'] ?? 0),
-            'commits_count' => (int) ($pullRequestPayload['commits'] ?? 0),
-            'comments_count' => (int) ($pullRequestPayload['comments'] ?? 0),
-            'created_at_github' => $pullRequestPayload['created_at'],
-            'updated_at_github' => $pullRequestPayload['updated_at'] ?? null,
-            'closed_at' => $pullRequestPayload['closed_at'] ?? null,
-            'merged_at' => $pullRequestPayload['merged_at'] ?? null,
-            'updated_at' => now(),
-        ];
-        $existing = DB::table('pull_requests')->where('github_pull_request_id', $githubId)->first();
+        return DB::transaction(function () use ($repositoryId, $githubId, $pullRequestPayload): ?object {
+            // Shared with complete(): locking the repository row here
+            // serializes this webhook upsert against a concurrent bulk
+            // sync/reconciliation run for the same repository.
+            DB::table('repositories')->where('id', $repositoryId)->lockForUpdate()->first();
 
-        if ($existing === null) {
-            $pullRequestId = (int) DB::table('pull_requests')->insertGetId([
-                'github_pull_request_id' => $githubId,
-                ...$values,
-                'created_at' => now(),
-            ]);
-        } else {
-            $pullRequestId = (int) $existing->id;
+            $authorId = $this->upsertGitHubUser($pullRequestPayload['user'] ?? null);
+            $values = [
+                'repository_id' => $repositoryId,
+                'number' => (int) $pullRequestPayload['number'],
+                'title' => (string) $pullRequestPayload['title'],
+                'html_url' => $pullRequestPayload['html_url'] ?? null,
+                'state' => (string) $pullRequestPayload['state'],
+                'is_draft' => (bool) ($pullRequestPayload['draft'] ?? false),
+                'author_github_user_id' => $authorId,
+                'base_ref' => (string) ($pullRequestPayload['base']['ref'] ?? ''),
+                'head_ref' => (string) ($pullRequestPayload['head']['ref'] ?? ''),
+                'additions' => (int) ($pullRequestPayload['additions'] ?? 0),
+                'deletions' => (int) ($pullRequestPayload['deletions'] ?? 0),
+                'changed_files' => (int) ($pullRequestPayload['changed_files'] ?? 0),
+                'commits_count' => (int) ($pullRequestPayload['commits'] ?? 0),
+                'comments_count' => (int) ($pullRequestPayload['comments'] ?? 0),
+                'created_at_github' => $pullRequestPayload['created_at'],
+                'updated_at_github' => $pullRequestPayload['updated_at'] ?? null,
+                'closed_at' => $pullRequestPayload['closed_at'] ?? null,
+                'merged_at' => $pullRequestPayload['merged_at'] ?? null,
+                'updated_at' => now(),
+            ];
+            $existing = DB::table('pull_requests')->where('github_pull_request_id', $githubId)->first();
 
-            if ($this->isAtLeastAsRecent($existing->updated_at_github, $pullRequestPayload)) {
-                DB::table('pull_requests')->where('id', $pullRequestId)->update($values);
+            if ($existing === null) {
+                $pullRequestId = (int) DB::table('pull_requests')->insertGetId([
+                    'github_pull_request_id' => $githubId,
+                    ...$values,
+                    'created_at' => now(),
+                ]);
+            } else {
+                $pullRequestId = (int) $existing->id;
+
+                if ($this->isAtLeastAsRecent($existing->updated_at_github, $pullRequestPayload)) {
+                    DB::table('pull_requests')->where('id', $pullRequestId)->update($values);
+                }
             }
-        }
 
-        return DB::table('pull_requests')->find($pullRequestId);
+            return DB::table('pull_requests')->find($pullRequestId);
+        });
     }
 
     public function upsertReviewFromWebhook(int $pullRequestId, array $reviewPayload): void
@@ -264,7 +271,12 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
                 return;
             }
 
-            $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0];
+            // Shared with upsertPullRequestFromWebhook: locking the repository
+            // row here serializes a bulk sync/reconciliation run against
+            // concurrent webhook processing for the same repository.
+            DB::table('repositories')->where('id', $run->repository_id)->lockForUpdate()->first();
+
+            $counts = ['created' => 0, 'updated' => 0, 'unchanged' => 0, 'unsupported' => 0];
 
             foreach ($result['items'] as $item) {
                 $this->upsertPullRequest((int) $run->repository_id, $item, $counts);
@@ -279,6 +291,7 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
                 'created_count' => $counts['created'],
                 'updated_count' => $counts['updated'],
                 'unchanged_count' => $counts['unchanged'],
+                'unsupported_count' => $counts['unsupported'],
                 'rate_limit_remaining' => $result['rate_limit_remaining'],
                 'rate_limit_reset_at' => $result['rate_limit_reset_at'],
                 'updated_at' => $now,
@@ -324,10 +337,17 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
             }
 
             $now = now();
+            $isInaccessibleCategory = in_array($category, [
+                'not_found',
+                'authentication',
+                'permission',
+                'GITHUB_INSTALLATION_NOT_FOUND',
+            ], true);
             DB::table('sync_runs')->where('id', $runId)->update([
                 'status' => $status,
                 'completed_at' => $now,
                 'failed_count' => 1,
+                'inaccessible_count' => $isInaccessibleCategory ? 1 : 0,
                 'error_category' => $category,
                 'error_summary' => $summary,
                 'updated_at' => $now,
@@ -347,12 +367,7 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
                 'updated_at' => $now,
             ];
 
-            if (in_array($category, [
-                'not_found',
-                'authentication',
-                'permission',
-                'GITHUB_INSTALLATION_NOT_FOUND',
-            ], true)) {
+            if ($isInaccessibleCategory) {
                 $repositoryValues['is_accessible'] = false;
                 $repositoryValues['access_error'] = $category;
             }
@@ -379,7 +394,7 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
         $githubId = (int) ($pullRequest['id'] ?? 0);
 
         if ($githubId <= 0) {
-            $counts['unchanged']++;
+            $counts['unsupported']++;
 
             return;
         }
@@ -418,7 +433,13 @@ class SynchronizationRepository implements SynchronizationRepositoryInterface
         } else {
             $pullRequestId = (int) $existing->id;
 
-            if ($this->recordChanged($existing, $values)) {
+            // Shares the same recency guard as upsertPullRequestFromWebhook so
+            // a bulk sync/reconciliation run using possibly-stale fetched data
+            // can never regress a state a webhook already applied more recently.
+            if (
+                $this->recordChanged($existing, $values) &&
+                $this->isAtLeastAsRecent($existing->updated_at_github, $pullRequest)
+            ) {
                 DB::table('pull_requests')->where('id', $pullRequestId)->update($values);
                 $counts['updated']++;
             } else {

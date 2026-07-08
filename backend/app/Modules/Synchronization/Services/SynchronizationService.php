@@ -104,6 +104,37 @@ class SynchronizationService
         return $scheduled;
     }
 
+    /**
+     * Manually triggered reconciliation for every enabled repository, using
+     * the same idempotent sync engine as scheduleEnabledRepositories() but
+     * tagged with a distinct trigger_type for ops visibility (V2-FR-REC-001,
+     * V2-FR-REC-011). Not wired into the live schedule alongside the
+     * existing six-hour poll - running both on the same cadence would poll
+     * GitHub twice for no benefit. Whether/how to fold this into scheduled
+     * polling per ADR2-003 is an operational decision, not made here.
+     */
+    public function reconcileEnabledRepositories(): int
+    {
+        $reconciled = 0;
+
+        foreach ($this->synchronization->scheduledCandidates() as $repository) {
+            $result = $this->synchronization->createOrGetActiveRun(
+                (int) $repository->organization_id,
+                (int) $repository->repository_id,
+                null,
+                'reconciliation',
+            );
+
+            if ($result['created']) {
+                SynchronizeRepositoryJob::dispatch((int) $result['run']->id)
+                    ->afterCommit();
+                $reconciled++;
+            }
+        }
+
+        return $reconciled;
+    }
+
     /** @return array<string, mixed> */
     private function payload(object $run): array
     {
@@ -118,6 +149,8 @@ class SynchronizationService
             'updated_count' => (int) $run->updated_count,
             'unchanged_count' => (int) $run->unchanged_count,
             'failed_count' => (int) $run->failed_count,
+            'inaccessible_count' => (int) $run->inaccessible_count,
+            'unsupported_count' => (int) $run->unsupported_count,
             'rate_limit_remaining' => $run->rate_limit_remaining === null
                 ? null
                 : (int) $run->rate_limit_remaining,
