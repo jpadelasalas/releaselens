@@ -160,6 +160,10 @@ class AppServiceProvider extends ServiceProvider
             OrganizationPolicy::REQUEST_SYNCHRONIZATION,
             OrganizationPolicy::class.'@requestSynchronization',
         );
+        Gate::define(
+            OrganizationPolicy::MANAGE_RELEASES,
+            OrganizationPolicy::class.'@manageReleases',
+        );
 
         RateLimiter::for('demo-session', function (Request $request) {
             return Limit::perMinute(20)->by(
