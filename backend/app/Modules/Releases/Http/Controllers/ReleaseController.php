@@ -3,6 +3,8 @@
 namespace App\Modules\Releases\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Releases\Contracts\ReleaseApprovalRepositoryInterface;
+use App\Modules\Releases\Contracts\ReleaseChecklistRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseRepositoryInterface;
 use App\Modules\Releases\Enums\ReleaseState;
 use App\Modules\Releases\Http\Requests\CreateReleaseRequest;
@@ -21,6 +23,8 @@ class ReleaseController extends Controller
     public function __construct(
         private readonly ReleaseRepositoryInterface $releases,
         private readonly ReleaseService $releaseService,
+        private readonly ReleaseChecklistRepositoryInterface $checklist,
+        private readonly ReleaseApprovalRepositoryInterface $approvals,
     ) {}
 
     public function index(ListReleasesRequest $request, int $org): JsonResponse
@@ -72,6 +76,21 @@ class ReleaseController extends Controller
                     'id' => (int) $repository->id,
                     'name' => $repository->name,
                     'full_name' => $repository->full_name,
+                ])->all(),
+            'checklist_items' => $this->checklist->forRelease($record->id)
+                ->map(fn (object $item): array => [
+                    'id' => (int) $item->id,
+                    'label' => $item->label,
+                    'is_required' => (bool) $item->is_required,
+                    'position' => (int) $item->position,
+                    'completed_at' => $item->completed_at,
+                    'completed_by_user_id' => $item->completed_by_user_id !== null ? (int) $item->completed_by_user_id : null,
+                ])->all(),
+            'approvals' => $this->approvals->forRelease($record->id)
+                ->map(fn (object $approval): array => [
+                    'id' => (int) $approval->id,
+                    'approver_user_id' => (int) $approval->approver_user_id,
+                    'approved_at' => $approval->approved_at,
                 ])->all(),
         ]);
     }

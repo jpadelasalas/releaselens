@@ -43,4 +43,6 @@ interface ReleaseRepositoryInterface
     public function findMergedPullRequestForOrganization(int $organizationId, int $pullRequestId): ?object;
 
     public function findPullRequestInRelease(int $releaseId, int $pullRequestId): ?object;
+
+    public function incrementApprovalGeneration(int $id): void;
 }

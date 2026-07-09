@@ -18,7 +18,7 @@ class ReleaseApprovalRepositoryTest extends TestCase
         $releaseId = $this->release();
         $approver = $this->user();
 
-        $approval = $this->repository()->record($releaseId, $approver->id);
+        $approval = $this->repository()->record($releaseId, $approver->id, 0);
 
         $this->assertSame($approver->id, $approval->approver_user_id);
         $this->assertNotNull($approval->approved_at);
@@ -31,8 +31,8 @@ class ReleaseApprovalRepositoryTest extends TestCase
         $second = $this->user();
         $repository = $this->repository();
 
-        $repository->record($releaseId, $first->id);
-        $repository->record($releaseId, $second->id);
+        $repository->record($releaseId, $first->id, 0);
+        $repository->record($releaseId, $second->id, 0);
 
         $approvals = $repository->forRelease($releaseId);
 

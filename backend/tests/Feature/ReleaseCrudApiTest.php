@@ -137,12 +137,20 @@ class ReleaseCrudApiTest extends TestCase
     {
         $organizationId = $this->organization();
         $owner = $this->member($organizationId, 'owner');
-        $release = app(ReleaseRepositoryInterface::class)->create($organizationId, ['title' => 'July release']);
+        $manager = $this->member($organizationId, 'manager');
+        $release = app(ReleaseRepositoryInterface::class)->create($organizationId, [
+            'title' => 'July release',
+            'created_by_user_id' => $owner->id,
+        ]);
 
         $this->actingAs($owner)->postJson(
             "/api/v1/organizations/{$organizationId}/releases/{$release->id}/transition",
             ['to' => 'in_review'],
         )->assertOk()->assertJsonPath('data.state', 'in_review');
+
+        $this->actingAs($manager)->postJson(
+            "/api/v1/organizations/{$organizationId}/releases/{$release->id}/approvals",
+        )->assertCreated();
 
         $this->actingAs($owner)->postJson(
             "/api/v1/organizations/{$organizationId}/releases/{$release->id}/transition",

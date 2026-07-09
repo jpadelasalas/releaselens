@@ -8,12 +8,13 @@ use Illuminate\Support\Facades\DB;
 
 class ReleaseApprovalRepository implements ReleaseApprovalRepositoryInterface
 {
-    public function record(int $releaseId, int $approverUserId): object
+    public function record(int $releaseId, int $approverUserId, int $approvalGeneration): object
     {
         $now = now();
         $id = (int) DB::table('release_approvals')->insertGetId([
             'release_id' => $releaseId,
             'approver_user_id' => $approverUserId,
+            'approval_generation' => $approvalGeneration,
             'approved_at' => $now,
             'created_at' => $now,
             'updated_at' => $now,
