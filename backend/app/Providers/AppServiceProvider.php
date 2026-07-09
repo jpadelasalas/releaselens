@@ -17,6 +17,14 @@ use App\Modules\Organizations\Policies\OrganizationPolicy;
 use App\Modules\Organizations\Repositories\OrganizationWorkspaceRepository;
 use App\Modules\PullRequests\Contracts\PullRequestRepositoryInterface;
 use App\Modules\PullRequests\Repositories\PullRequestRepository;
+use App\Modules\Releases\Contracts\ReleaseActivityRepositoryInterface;
+use App\Modules\Releases\Contracts\ReleaseApprovalRepositoryInterface;
+use App\Modules\Releases\Contracts\ReleasePolicyRepositoryInterface;
+use App\Modules\Releases\Contracts\ReleaseRepositoryInterface;
+use App\Modules\Releases\Repositories\ReleaseActivityRepository;
+use App\Modules\Releases\Repositories\ReleaseApprovalRepository;
+use App\Modules\Releases\Repositories\ReleasePolicyRepository;
+use App\Modules\Releases\Repositories\ReleaseRepository;
 use App\Modules\Repositories\Contracts\OrganizationRepositoryInterface;
 use App\Modules\Repositories\Repositories\OrganizationRepository;
 use App\Modules\Synchronization\Contracts\GitHubRepositorySyncClientInterface;
@@ -98,6 +106,26 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             WebhookDeliveryRepositoryInterface::class,
             WebhookDeliveryRepository::class,
+        );
+
+        $this->app->bind(
+            ReleaseRepositoryInterface::class,
+            ReleaseRepository::class,
+        );
+
+        $this->app->bind(
+            ReleaseActivityRepositoryInterface::class,
+            ReleaseActivityRepository::class,
+        );
+
+        $this->app->bind(
+            ReleaseApprovalRepositoryInterface::class,
+            ReleaseApprovalRepository::class,
+        );
+
+        $this->app->bind(
+            ReleasePolicyRepositoryInterface::class,
+            ReleasePolicyRepository::class,
         );
 
         $this->app->singleton(WebhookEventHandlerRegistry::class);
