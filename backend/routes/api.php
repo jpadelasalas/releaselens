@@ -21,7 +21,10 @@ use App\Modules\Organizations\Http\Controllers\ListOrganizationsController;
 use App\Modules\Organizations\Http\Controllers\RemoveOrganizationMemberController;
 use App\Modules\Organizations\Http\Controllers\UpdateOrganizationMemberController;
 use App\Modules\PullRequests\Http\Controllers\PullRequestExplorerController;
+use App\Modules\Releases\Http\Controllers\ReleaseApprovalController;
+use App\Modules\Releases\Http\Controllers\ReleaseChecklistItemController;
 use App\Modules\Releases\Http\Controllers\ReleaseController;
+use App\Modules\Releases\Http\Controllers\ReleasePolicyController;
 use App\Modules\Releases\Http\Controllers\ReleasePullRequestController;
 use App\Modules\Repositories\Http\Controllers\AvailableGitHubRepositoriesController;
 use App\Modules\Repositories\Http\Controllers\ImportRepositoriesController;
@@ -190,6 +193,37 @@ Route::prefix('v1')
                     Route::delete('/{pullRequest}', 'destroy')
                         ->whereNumber('pullRequest')
                         ->name('release-pull-requests.destroy');
+                });
+
+            Route::prefix('/organizations/{org}/releases/{release}/checklist-items')
+                ->whereNumber(['org', 'release'])
+                ->middleware('feature:releases')
+                ->controller(ReleaseChecklistItemController::class)
+                ->group(function (): void {
+                    Route::post('/', 'store')->name('release-checklist-items.store');
+                    Route::patch('/{item}', 'update')
+                        ->whereNumber('item')
+                        ->name('release-checklist-items.update');
+                    Route::delete('/{item}', 'destroy')
+                        ->whereNumber('item')
+                        ->name('release-checklist-items.destroy');
+                });
+
+            Route::post(
+                '/organizations/{org}/releases/{release}/approvals',
+                [ReleaseApprovalController::class, 'store'],
+            )
+                ->whereNumber(['org', 'release'])
+                ->middleware('feature:releases')
+                ->name('release-approvals.store');
+
+            Route::prefix('/organizations/{org}/release-policy')
+                ->whereNumber('org')
+                ->middleware('feature:releases')
+                ->controller(ReleasePolicyController::class)
+                ->group(function (): void {
+                    Route::get('/', 'show')->name('release-policy.show');
+                    Route::put('/', 'update')->name('release-policy.update');
                 });
         });
     });

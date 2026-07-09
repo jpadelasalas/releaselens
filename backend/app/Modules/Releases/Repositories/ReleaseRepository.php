@@ -142,4 +142,11 @@ class ReleaseRepository implements ReleaseRepositoryInterface
             ->where('pull_request_id', $pullRequestId)
             ->first();
     }
+
+    public function incrementApprovalGeneration(int $id): void
+    {
+        DB::table('releases')->where('id', $id)->increment('approval_generation', 1, [
+            'updated_at' => now(),
+        ]);
+    }
 }

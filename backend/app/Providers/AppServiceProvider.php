@@ -19,10 +19,12 @@ use App\Modules\PullRequests\Contracts\PullRequestRepositoryInterface;
 use App\Modules\PullRequests\Repositories\PullRequestRepository;
 use App\Modules\Releases\Contracts\ReleaseActivityRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseApprovalRepositoryInterface;
+use App\Modules\Releases\Contracts\ReleaseChecklistRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleasePolicyRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseRepositoryInterface;
 use App\Modules\Releases\Repositories\ReleaseActivityRepository;
 use App\Modules\Releases\Repositories\ReleaseApprovalRepository;
+use App\Modules\Releases\Repositories\ReleaseChecklistRepository;
 use App\Modules\Releases\Repositories\ReleasePolicyRepository;
 use App\Modules\Releases\Repositories\ReleaseRepository;
 use App\Modules\Repositories\Contracts\OrganizationRepositoryInterface;
@@ -126,6 +128,11 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             ReleasePolicyRepositoryInterface::class,
             ReleasePolicyRepository::class,
+        );
+
+        $this->app->bind(
+            ReleaseChecklistRepositoryInterface::class,
+            ReleaseChecklistRepository::class,
         );
 
         $this->app->singleton(WebhookEventHandlerRegistry::class);
