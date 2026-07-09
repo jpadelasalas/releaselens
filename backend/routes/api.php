@@ -21,6 +21,8 @@ use App\Modules\Organizations\Http\Controllers\ListOrganizationsController;
 use App\Modules\Organizations\Http\Controllers\RemoveOrganizationMemberController;
 use App\Modules\Organizations\Http\Controllers\UpdateOrganizationMemberController;
 use App\Modules\PullRequests\Http\Controllers\PullRequestExplorerController;
+use App\Modules\Releases\Http\Controllers\ReleaseController;
+use App\Modules\Releases\Http\Controllers\ReleasePullRequestController;
 use App\Modules\Repositories\Http\Controllers\AvailableGitHubRepositoriesController;
 use App\Modules\Repositories\Http\Controllers\ImportRepositoriesController;
 use App\Modules\Repositories\Http\Controllers\OrganizationRepositoryController;
@@ -160,6 +162,35 @@ Route::prefix('v1')
                 ->whereNumber('org')
                 ->middleware('feature:webhooks')
                 ->name('sync-health.show');
+
+            Route::prefix('/organizations/{org}/releases')
+                ->whereNumber('org')
+                ->middleware('feature:releases')
+                ->controller(ReleaseController::class)
+                ->group(function (): void {
+                    Route::get('/', 'index')->name('releases.index');
+                    Route::post('/', 'store')->name('releases.store');
+                    Route::get('/{release}', 'show')
+                        ->whereNumber('release')
+                        ->name('releases.show');
+                    Route::patch('/{release}', 'update')
+                        ->whereNumber('release')
+                        ->name('releases.update');
+                    Route::post('/{release}/transition', 'transition')
+                        ->whereNumber('release')
+                        ->name('releases.transition');
+                });
+
+            Route::prefix('/organizations/{org}/releases/{release}/pull-requests')
+                ->whereNumber(['org', 'release'])
+                ->middleware('feature:releases')
+                ->controller(ReleasePullRequestController::class)
+                ->group(function (): void {
+                    Route::post('/', 'store')->name('release-pull-requests.store');
+                    Route::delete('/{pullRequest}', 'destroy')
+                        ->whereNumber('pullRequest')
+                        ->name('release-pull-requests.destroy');
+                });
         });
     });
 

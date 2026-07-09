@@ -21,6 +21,8 @@ class OrganizationPolicy
 
     public const REQUEST_SYNCHRONIZATION = 'organization.request-synchronization';
 
+    public const MANAGE_RELEASES = 'organization.manage-releases';
+
     public function __construct(
         private readonly OrganizationWorkspaceRepositoryInterface $organizations,
     ) {}
@@ -85,6 +87,17 @@ class OrganizationPolicy
             $user,
             $organizationId,
             'Only workspace Owners and Managers can request synchronization.',
+            OrganizationRole::Owner,
+            OrganizationRole::Manager,
+        );
+    }
+
+    public function manageReleases(User $user, int $organizationId): Response
+    {
+        return $this->authorizeRoles(
+            $user,
+            $organizationId,
+            'Only workspace Owners and Managers can manage releases.',
             OrganizationRole::Owner,
             OrganizationRole::Manager,
         );
