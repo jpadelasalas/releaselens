@@ -69,6 +69,8 @@ class DemoSeeder extends Seeder
 
             $this->seedReleaseDemoData($organizationId, $repositories);
 
+            $this->seedIncidentDemoData($organizationId);
+
             $this->command?->newLine();
             $this->command?->info('ReleaseLens demo data created.');
             $this->command?->line(
@@ -242,6 +244,31 @@ class DemoSeeder extends Seeder
 
         if (Schema::hasTable('environment_mappings')) {
             DB::table('environment_mappings')
+                ->where('organization_id', $organizationId)
+                ->delete();
+        }
+
+        if (Schema::hasTable('incidents')) {
+            $incidentIds = DB::table('incidents')
+                ->where('organization_id', $organizationId)
+                ->pluck('id');
+
+            if ($incidentIds->isNotEmpty()) {
+                foreach ([
+                    'incident_timeline_entries',
+                    'incident_action_items',
+                    'incident_links',
+                    'postmortems',
+                ] as $childTable) {
+                    if (Schema::hasTable($childTable)) {
+                        DB::table($childTable)
+                            ->whereIn('incident_id', $incidentIds)
+                            ->delete();
+                    }
+                }
+            }
+
+            DB::table('incidents')
                 ->where('organization_id', $organizationId)
                 ->delete();
         }
@@ -1347,6 +1374,109 @@ class DemoSeeder extends Seeder
             'occurred_at' => $rolledBackDeployedAt->addHours(2),
             'created_at' => $rolledBackDeployedAt->addHours(2),
             'updated_at' => $rolledBackDeployedAt->addHours(2),
+        ]);
+    }
+
+    /**
+     * V2.3 showcase scenarios (V2-FR-INC-017): a closed incident with a
+     * published postmortem, and an active incident still being worked.
+     */
+    private function seedIncidentDemoData(int $organizationId): void
+    {
+        if (! Schema::hasTable('incidents')) {
+            return;
+        }
+
+        $ownerUserId = DB::table('users')
+            ->where('email', 'demo-owner@releaselens.invalid')
+            ->value('id');
+
+        // Scenario 1: a closed sev1 incident with a published postmortem.
+        $startedAt = $this->anchor->subDays(10);
+        $resolvedAt = $startedAt->addHours(3);
+        $closedAt = $startedAt->addDay();
+        $closedIncidentId = $this->insertGetId('incidents', [
+            'organization_id' => $organizationId,
+            'title' => 'Billing webhook processing outage',
+            'summary' => 'Webhook deliveries queued without draining for 45 minutes.',
+            'severity' => 'sev1',
+            'state' => 'closed',
+            'started_at' => $startedAt,
+            'resolved_at' => $resolvedAt,
+            'closed_at' => $closedAt,
+            'created_by_user_id' => $ownerUserId,
+            'created_at' => $startedAt,
+            'updated_at' => $closedAt,
+        ]);
+        $this->insertGetId('incident_timeline_entries', [
+            'incident_id' => $closedIncidentId,
+            'actor_user_id' => $ownerUserId,
+            'entry_type' => 'created',
+            'message' => 'Incident opened after webhook queue depth alert.',
+            'occurred_at' => $startedAt,
+            'created_at' => $startedAt,
+            'updated_at' => $startedAt,
+        ]);
+        $this->insertGetId('incident_timeline_entries', [
+            'incident_id' => $closedIncidentId,
+            'actor_user_id' => $ownerUserId,
+            'entry_type' => 'state_changed',
+            'message' => 'State changed from monitoring to resolved.',
+            'occurred_at' => $resolvedAt,
+            'created_at' => $resolvedAt,
+            'updated_at' => $resolvedAt,
+        ]);
+        $this->insertGetId('incident_action_items', [
+            'incident_id' => $closedIncidentId,
+            'description' => 'Add queue depth alerting threshold',
+            'assigned_to_user_id' => $ownerUserId,
+            'is_completed' => true,
+            'completed_at' => $closedAt,
+            'completed_by_user_id' => $ownerUserId,
+            'created_at' => $startedAt,
+            'updated_at' => $closedAt,
+        ]);
+        $this->insertGetId('postmortems', [
+            'incident_id' => $closedIncidentId,
+            'summary' => 'A worker deploy silently stopped consuming the webhook queue; deliveries backed up until the next scheduled restart.',
+            'root_cause' => 'The queue worker process was not restarted after a routine deploy.',
+            'impact' => 'Webhook-driven data (deployment statuses, PR updates) was delayed by up to 45 minutes for all monitored repositories.',
+            'is_published' => true,
+            'published_at' => $closedAt,
+            'created_by_user_id' => $ownerUserId,
+            'created_at' => $resolvedAt,
+            'updated_at' => $closedAt,
+        ]);
+
+        // Scenario 2: an active sev3 incident still being investigated.
+        $activeStartedAt = $this->anchor->subHours(3);
+        $activeIncidentId = $this->insertGetId('incidents', [
+            'organization_id' => $organizationId,
+            'title' => 'Elevated API latency on customer-portal',
+            'summary' => 'p95 response time above threshold on the billing endpoints.',
+            'severity' => 'sev3',
+            'state' => 'identified',
+            'started_at' => $activeStartedAt,
+            'created_by_user_id' => $ownerUserId,
+            'created_at' => $activeStartedAt,
+            'updated_at' => $activeStartedAt,
+        ]);
+        $this->insertGetId('incident_timeline_entries', [
+            'incident_id' => $activeIncidentId,
+            'actor_user_id' => $ownerUserId,
+            'entry_type' => 'created',
+            'message' => 'Incident opened after latency alert.',
+            'occurred_at' => $activeStartedAt,
+            'created_at' => $activeStartedAt,
+            'updated_at' => $activeStartedAt,
+        ]);
+        $this->insertGetId('incident_action_items', [
+            'incident_id' => $activeIncidentId,
+            'description' => 'Profile the invoice reconciliation query',
+            'assigned_to_user_id' => $ownerUserId,
+            'is_completed' => false,
+            'created_at' => $activeStartedAt,
+            'updated_at' => $activeStartedAt,
         ]);
     }
 

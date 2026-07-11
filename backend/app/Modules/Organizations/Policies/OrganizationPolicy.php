@@ -23,6 +23,8 @@ class OrganizationPolicy
 
     public const MANAGE_RELEASES = 'organization.manage-releases';
 
+    public const MANAGE_INCIDENTS = 'organization.manage-incidents';
+
     public function __construct(
         private readonly OrganizationWorkspaceRepositoryInterface $organizations,
     ) {}
@@ -98,6 +100,17 @@ class OrganizationPolicy
             $user,
             $organizationId,
             'Only workspace Owners and Managers can manage releases.',
+            OrganizationRole::Owner,
+            OrganizationRole::Manager,
+        );
+    }
+
+    public function manageIncidents(User $user, int $organizationId): Response
+    {
+        return $this->authorizeRoles(
+            $user,
+            $organizationId,
+            'Only workspace Owners and Managers can manage incidents.',
             OrganizationRole::Owner,
             OrganizationRole::Manager,
         );

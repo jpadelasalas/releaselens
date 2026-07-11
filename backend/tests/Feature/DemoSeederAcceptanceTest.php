@@ -189,6 +189,33 @@ class DemoSeederAcceptanceTest extends TestCase
         );
     }
 
+    public function test_demo_seed_includes_v2_3_incident_scenarios(): void
+    {
+        $this->seed(DemoSeeder::class);
+
+        $closed = DB::table('incidents')->where('state', 'closed')->first();
+        $this->assertNotNull($closed);
+        $this->assertSame('sev1', $closed->severity);
+        $this->assertNotNull($closed->closed_at);
+
+        $postmortem = DB::table('postmortems')->where('incident_id', $closed->id)->first();
+        $this->assertNotNull($postmortem);
+        $this->assertSame(1, (int) $postmortem->is_published);
+
+        $active = DB::table('incidents')->whereIn('state', ['investigating', 'identified', 'monitoring'])->first();
+        $this->assertNotNull($active);
+        $this->assertNull($active->closed_at);
+    }
+
+    public function test_reseeding_the_demo_does_not_duplicate_incidents(): void
+    {
+        $this->seed(DemoSeeder::class);
+        $this->seed(DemoSeeder::class);
+
+        $this->assertSame(2, DB::table('incidents')->count());
+        $this->assertSame(1, DB::table('postmortems')->count());
+    }
+
     private function datasetFingerprint(): string
     {
         $repositories = DB::table('repositories')

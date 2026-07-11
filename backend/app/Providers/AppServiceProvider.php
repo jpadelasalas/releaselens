@@ -236,6 +236,10 @@ class AppServiceProvider extends ServiceProvider
             OrganizationPolicy::MANAGE_RELEASES,
             OrganizationPolicy::class.'@manageReleases',
         );
+        Gate::define(
+            OrganizationPolicy::MANAGE_INCIDENTS,
+            OrganizationPolicy::class.'@manageIncidents',
+        );
 
         RateLimiter::for('demo-session', function (Request $request) {
             return Limit::perMinute(20)->by(

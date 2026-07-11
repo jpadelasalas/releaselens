@@ -15,6 +15,10 @@ use App\Modules\Identity\Http\Controllers\CurrentUserController;
 use App\Modules\Identity\Http\Controllers\LoginController;
 use App\Modules\Identity\Http\Controllers\LogoutController;
 use App\Modules\Identity\Http\Controllers\RegisterController;
+use App\Modules\Incidents\Http\Controllers\IncidentActionItemController;
+use App\Modules\Incidents\Http\Controllers\IncidentController;
+use App\Modules\Incidents\Http\Controllers\IncidentLinkController;
+use App\Modules\Incidents\Http\Controllers\IncidentPostmortemController;
 use App\Modules\Notifications\Http\Controllers\NotificationController;
 use App\Modules\Notifications\Http\Controllers\NotificationPreferenceController;
 use App\Modules\Operations\Http\Controllers\HealthController;
@@ -287,6 +291,58 @@ Route::prefix('v1')
                 ->group(function (): void {
                     Route::get('/', 'index')->name('notification-preferences.index');
                     Route::put('/', 'update')->name('notification-preferences.update');
+                });
+
+            Route::prefix('/organizations/{org}/incidents')
+                ->whereNumber('org')
+                ->middleware('feature:incidents')
+                ->controller(IncidentController::class)
+                ->group(function (): void {
+                    Route::get('/', 'index')->name('incidents.index');
+                    Route::post('/', 'store')->name('incidents.store');
+                    Route::get('/{incident}', 'show')
+                        ->whereNumber('incident')
+                        ->name('incidents.show');
+                    Route::patch('/{incident}', 'update')
+                        ->whereNumber('incident')
+                        ->name('incidents.update');
+                    Route::post('/{incident}/transition', 'transition')
+                        ->whereNumber('incident')
+                        ->name('incidents.transition');
+                });
+
+            Route::prefix('/organizations/{org}/incidents/{incident}/action-items')
+                ->whereNumber(['org', 'incident'])
+                ->middleware('feature:incidents')
+                ->controller(IncidentActionItemController::class)
+                ->group(function (): void {
+                    Route::post('/', 'store')->name('incident-action-items.store');
+                    Route::patch('/{item}', 'update')
+                        ->whereNumber('item')
+                        ->name('incident-action-items.update');
+                    Route::delete('/{item}', 'destroy')
+                        ->whereNumber('item')
+                        ->name('incident-action-items.destroy');
+                });
+
+            Route::prefix('/organizations/{org}/incidents/{incident}/links')
+                ->whereNumber(['org', 'incident'])
+                ->middleware('feature:incidents')
+                ->controller(IncidentLinkController::class)
+                ->group(function (): void {
+                    Route::post('/', 'store')->name('incident-links.store');
+                    Route::delete('/{link}', 'destroy')
+                        ->whereNumber('link')
+                        ->name('incident-links.destroy');
+                });
+
+            Route::prefix('/organizations/{org}/incidents/{incident}/postmortem')
+                ->whereNumber(['org', 'incident'])
+                ->middleware('feature:incidents')
+                ->controller(IncidentPostmortemController::class)
+                ->group(function (): void {
+                    Route::put('/', 'update')->name('incident-postmortem.update');
+                    Route::post('/publish', 'publish')->name('incident-postmortem.publish');
                 });
         });
     });

@@ -22,12 +22,19 @@ class IncidentLinkRepository implements IncidentLinkRepositoryInterface
         return DB::table('incident_links')->find($id);
     }
 
-    public function unlink(int $incidentId, string $linkableType, int $linkableId): void
+    public function find(int $incidentId, int $id): ?object
+    {
+        return DB::table('incident_links')
+            ->where('incident_id', $incidentId)
+            ->where('id', $id)
+            ->first();
+    }
+
+    public function remove(int $incidentId, int $id): void
     {
         DB::table('incident_links')
             ->where('incident_id', $incidentId)
-            ->where('linkable_type', $linkableType)
-            ->where('linkable_id', $linkableId)
+            ->where('id', $id)
             ->delete();
     }
 
