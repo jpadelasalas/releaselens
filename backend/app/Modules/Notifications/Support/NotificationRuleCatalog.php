@@ -28,4 +28,12 @@ class NotificationRuleCatalog
     {
         return self::DEDUP_WINDOW_MINUTES[$type] ?? 0;
     }
+
+    /**
+     * @return array<int, string>
+     */
+    public static function knownTypes(): array
+    {
+        return array_keys(self::DEDUP_WINDOW_MINUTES);
+    }
 }

@@ -15,6 +15,8 @@ use App\Modules\Identity\Http\Controllers\CurrentUserController;
 use App\Modules\Identity\Http\Controllers\LoginController;
 use App\Modules\Identity\Http\Controllers\LogoutController;
 use App\Modules\Identity\Http\Controllers\RegisterController;
+use App\Modules\Notifications\Http\Controllers\NotificationController;
+use App\Modules\Notifications\Http\Controllers\NotificationPreferenceController;
 use App\Modules\Operations\Http\Controllers\HealthController;
 use App\Modules\Organizations\Http\Controllers\ActivateOrganizationController;
 use App\Modules\Organizations\Http\Controllers\AddOrganizationMemberController;
@@ -264,6 +266,27 @@ Route::prefix('v1')
                 ->group(function (): void {
                     Route::get('/', 'index')->name('environment-mappings.index');
                     Route::post('/', 'store')->name('environment-mappings.store');
+                });
+
+            Route::prefix('/organizations/{org}/notifications')
+                ->whereNumber('org')
+                ->middleware('feature:notifications')
+                ->controller(NotificationController::class)
+                ->group(function (): void {
+                    Route::get('/', 'index')->name('notifications.index');
+                    Route::post('/read-all', 'markAllRead')->name('notifications.read-all');
+                    Route::post('/{notification}/read', 'markRead')
+                        ->whereNumber('notification')
+                        ->name('notifications.read');
+                });
+
+            Route::prefix('/organizations/{org}/notification-preferences')
+                ->whereNumber('org')
+                ->middleware('feature:notifications')
+                ->controller(NotificationPreferenceController::class)
+                ->group(function (): void {
+                    Route::get('/', 'index')->name('notification-preferences.index');
+                    Route::put('/', 'update')->name('notification-preferences.update');
                 });
         });
     });
