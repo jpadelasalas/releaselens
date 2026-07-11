@@ -16,6 +16,16 @@ use App\Modules\GitHub\Contracts\GitHubConnectionRepositoryInterface;
 use App\Modules\GitHub\Repositories\GitHubConnectionRepository;
 use App\Modules\Identity\Contracts\UserRepositoryInterface;
 use App\Modules\Identity\Repositories\UserRepository;
+use App\Modules\Incidents\Contracts\IncidentActionItemRepositoryInterface;
+use App\Modules\Incidents\Contracts\IncidentLinkRepositoryInterface;
+use App\Modules\Incidents\Contracts\IncidentRepositoryInterface;
+use App\Modules\Incidents\Contracts\IncidentTimelineRepositoryInterface;
+use App\Modules\Incidents\Contracts\PostmortemRepositoryInterface;
+use App\Modules\Incidents\Repositories\IncidentActionItemRepository;
+use App\Modules\Incidents\Repositories\IncidentLinkRepository;
+use App\Modules\Incidents\Repositories\IncidentRepository;
+use App\Modules\Incidents\Repositories\IncidentTimelineRepository;
+use App\Modules\Incidents\Repositories\PostmortemRepository;
 use App\Modules\Notifications\Contracts\NotificationPreferenceRepositoryInterface;
 use App\Modules\Notifications\Contracts\NotificationRepositoryInterface;
 use App\Modules\Notifications\Repositories\NotificationPreferenceRepository;
@@ -163,6 +173,31 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             NotificationPreferenceRepositoryInterface::class,
             NotificationPreferenceRepository::class,
+        );
+
+        $this->app->bind(
+            IncidentRepositoryInterface::class,
+            IncidentRepository::class,
+        );
+
+        $this->app->bind(
+            IncidentLinkRepositoryInterface::class,
+            IncidentLinkRepository::class,
+        );
+
+        $this->app->bind(
+            IncidentTimelineRepositoryInterface::class,
+            IncidentTimelineRepository::class,
+        );
+
+        $this->app->bind(
+            IncidentActionItemRepositoryInterface::class,
+            IncidentActionItemRepository::class,
+        );
+
+        $this->app->bind(
+            PostmortemRepositoryInterface::class,
+            PostmortemRepository::class,
         );
 
         $this->app->singleton(WebhookEventHandlerRegistry::class);
