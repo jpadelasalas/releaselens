@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\DemoSessionController;
 use App\Http\Middleware\EnsureDemoSessionIsReadOnly;
 use App\Http\Middleware\VerifyGitHubWebhookSignature;
+use App\Modules\Ai\Http\Controllers\AiGenerationController;
 use App\Modules\Analytics\Http\Controllers\OrganizationAnalyticsController;
 use App\Modules\Deployments\Http\Controllers\DeploymentController;
 use App\Modules\Deployments\Http\Controllers\EnvironmentMappingController;
@@ -343,6 +344,15 @@ Route::prefix('v1')
                 ->group(function (): void {
                     Route::put('/', 'update')->name('incident-postmortem.update');
                     Route::post('/publish', 'publish')->name('incident-postmortem.publish');
+                });
+
+            Route::prefix('/organizations/{org}/releases/{release}/ai-generations')
+                ->whereNumber(['org', 'release'])
+                ->middleware('feature:ai')
+                ->controller(AiGenerationController::class)
+                ->group(function (): void {
+                    Route::get('/', 'index')->name('ai-generations.index');
+                    Route::post('/', 'store')->name('ai-generations.store');
                 });
         });
     });

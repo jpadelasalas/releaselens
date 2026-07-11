@@ -216,6 +216,25 @@ class DemoSeederAcceptanceTest extends TestCase
         $this->assertSame(1, DB::table('postmortems')->count());
     }
 
+    public function test_demo_seed_includes_a_pre_generated_ai_release_notes_example(): void
+    {
+        $this->seed(DemoSeeder::class);
+
+        $generation = DB::table('ai_generations')->first();
+        $this->assertNotNull($generation);
+        $this->assertSame('succeeded', $generation->status);
+        $this->assertSame('stub', $generation->provider);
+        $this->assertStringContainsString('# v2.4.0', $generation->output);
+    }
+
+    public function test_reseeding_the_demo_does_not_duplicate_ai_generations(): void
+    {
+        $this->seed(DemoSeeder::class);
+        $this->seed(DemoSeeder::class);
+
+        $this->assertSame(1, DB::table('ai_generations')->count());
+    }
+
     private function datasetFingerprint(): string
     {
         $repositories = DB::table('repositories')

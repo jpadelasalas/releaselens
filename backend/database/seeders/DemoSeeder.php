@@ -2,6 +2,7 @@
 
 namespace Database\Seeders;
 
+use App\Modules\Ai\Services\StubAiReleaseNotesProvider;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\Seeder;
 use Illuminate\Support\Facades\DB;
@@ -207,6 +208,12 @@ class DemoSeeder extends Seeder
 
             DB::table('deployments')
                 ->whereIn('repository_id', $repositoryIds)
+                ->delete();
+        }
+
+        if (Schema::hasTable('ai_generations')) {
+            DB::table('ai_generations')
+                ->where('organization_id', $organizationId)
                 ->delete();
         }
 
@@ -1254,6 +1261,31 @@ class DemoSeeder extends Seeder
             'created_at' => $releasedAt,
             'updated_at' => $releasedAt,
         ]);
+
+        if (Schema::hasTable('ai_generations')) {
+            $context = [
+                'title' => 'v2.4.0 - Billing reliability improvements',
+                'description' => 'Stabilizes invoice reconciliation and adds retry handling for the billing webhook pipeline.',
+                'pull_request_titles' => DB::table('release_pull_requests')
+                    ->join('pull_requests', 'pull_requests.id', '=', 'release_pull_requests.pull_request_id')
+                    ->where('release_pull_requests.release_id', $successfulReleaseId)
+                    ->orderBy('pull_requests.merged_at')
+                    ->pluck('pull_requests.title')
+                    ->all(),
+            ];
+
+            $this->insertGetId('ai_generations', [
+                'organization_id' => $organizationId,
+                'release_id' => $successfulReleaseId,
+                'requested_by_user_id' => $ownerUserId,
+                'provider' => 'stub',
+                'status' => 'succeeded',
+                'input_fields' => json_encode(['title', 'description', 'pull_request_titles'], JSON_THROW_ON_ERROR),
+                'output' => (new StubAiReleaseNotesProvider)->generate($context),
+                'created_at' => $releasedAt,
+                'updated_at' => $releasedAt,
+            ]);
+        }
 
         // Scenario 2: a release awaiting approval.
         $inReviewAt = $this->anchor->subHours(6);
