@@ -4,6 +4,12 @@ namespace App\Providers;
 
 use App\Modules\Analytics\Contracts\OrganizationAnalyticsRepositoryInterface;
 use App\Modules\Analytics\Repositories\OrganizationAnalyticsRepository;
+use App\Modules\Deployments\Contracts\DeploymentRepositoryInterface;
+use App\Modules\Deployments\Contracts\EnvironmentMappingRepositoryInterface;
+use App\Modules\Deployments\Handlers\DeploymentStatusWebhookHandler;
+use App\Modules\Deployments\Handlers\DeploymentWebhookHandler;
+use App\Modules\Deployments\Repositories\DeploymentRepository;
+use App\Modules\Deployments\Repositories\EnvironmentMappingRepository;
 use App\Modules\GitHub\Clients\GitHubAppClient;
 use App\Modules\GitHub\Contracts\GitHubAppClientInterface;
 use App\Modules\GitHub\Contracts\GitHubConnectionRepositoryInterface;
@@ -135,6 +141,16 @@ class AppServiceProvider extends ServiceProvider
             ReleaseChecklistRepository::class,
         );
 
+        $this->app->bind(
+            DeploymentRepositoryInterface::class,
+            DeploymentRepository::class,
+        );
+
+        $this->app->bind(
+            EnvironmentMappingRepositoryInterface::class,
+            EnvironmentMappingRepository::class,
+        );
+
         $this->app->singleton(WebhookEventHandlerRegistry::class);
     }
 
@@ -193,5 +209,7 @@ class AppServiceProvider extends ServiceProvider
         $webhookHandlers->register('installation', InstallationWebhookHandler::class);
         $webhookHandlers->register('installation_repositories', InstallationRepositoriesWebhookHandler::class);
         $webhookHandlers->register('repository', RepositoryWebhookHandler::class);
+        $webhookHandlers->register('deployment', DeploymentWebhookHandler::class);
+        $webhookHandlers->register('deployment_status', DeploymentStatusWebhookHandler::class);
     }
 }

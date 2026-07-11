@@ -57,7 +57,7 @@ class WebhookEventAllowlistTest extends TestCase
     {
         $allowlist = new WebhookEventAllowlist;
 
-        $this->assertFalse($allowlist->supports('deployment', 'created'));
         $this->assertFalse($allowlist->supports('workflow_run', null));
+        $this->assertFalse($allowlist->supports('issue_comment', null));
     }
 }

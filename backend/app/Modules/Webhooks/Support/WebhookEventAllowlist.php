@@ -29,6 +29,8 @@ class WebhookEventAllowlist
         'installation' => ['created', 'deleted', 'suspend', 'unsuspend', 'new_permissions_accepted'],
         'installation_repositories' => ['added', 'removed'],
         'repository' => ['renamed', 'archived', 'unarchived', 'transferred', 'deleted'],
+        'deployment' => null,
+        'deployment_status' => null,
     ];
 
     public function supports(string $eventName, ?string $actionName): bool

@@ -4,6 +4,9 @@ use App\Http\Controllers\Api\V1\DemoSessionController;
 use App\Http\Middleware\EnsureDemoSessionIsReadOnly;
 use App\Http\Middleware\VerifyGitHubWebhookSignature;
 use App\Modules\Analytics\Http\Controllers\OrganizationAnalyticsController;
+use App\Modules\Deployments\Http\Controllers\DeploymentController;
+use App\Modules\Deployments\Http\Controllers\EnvironmentMappingController;
+use App\Modules\Deployments\Http\Controllers\LinkDeploymentReleaseController;
 use App\Modules\GitHub\Http\Controllers\DisconnectGitHubConnectionController;
 use App\Modules\GitHub\Http\Controllers\GitHubConnectionCallbackController;
 use App\Modules\GitHub\Http\Controllers\ShowGitHubConnectionController;
@@ -21,6 +24,7 @@ use App\Modules\Organizations\Http\Controllers\ListOrganizationsController;
 use App\Modules\Organizations\Http\Controllers\RemoveOrganizationMemberController;
 use App\Modules\Organizations\Http\Controllers\UpdateOrganizationMemberController;
 use App\Modules\PullRequests\Http\Controllers\PullRequestExplorerController;
+use App\Modules\Releases\Http\Controllers\ExportReleaseMarkdownController;
 use App\Modules\Releases\Http\Controllers\ReleaseApprovalController;
 use App\Modules\Releases\Http\Controllers\ReleaseChecklistItemController;
 use App\Modules\Releases\Http\Controllers\ReleaseController;
@@ -184,6 +188,14 @@ Route::prefix('v1')
                         ->name('releases.transition');
                 });
 
+            Route::get(
+                '/organizations/{org}/releases/{release}/export.md',
+                ExportReleaseMarkdownController::class,
+            )
+                ->whereNumber(['org', 'release'])
+                ->middleware('feature:releases')
+                ->name('releases.export-markdown');
+
             Route::prefix('/organizations/{org}/releases/{release}/pull-requests')
                 ->whereNumber(['org', 'release'])
                 ->middleware('feature:releases')
@@ -224,6 +236,34 @@ Route::prefix('v1')
                 ->group(function (): void {
                     Route::get('/', 'show')->name('release-policy.show');
                     Route::put('/', 'update')->name('release-policy.update');
+                });
+
+            Route::prefix('/organizations/{org}/deployments')
+                ->whereNumber('org')
+                ->middleware('feature:deployments')
+                ->controller(DeploymentController::class)
+                ->group(function (): void {
+                    Route::get('/', 'index')->name('deployments.index');
+                    Route::get('/{deployment}', 'show')
+                        ->whereNumber('deployment')
+                        ->name('deployments.show');
+                });
+
+            Route::post(
+                '/organizations/{org}/deployments/{deployment}/link-release',
+                LinkDeploymentReleaseController::class,
+            )
+                ->whereNumber(['org', 'deployment'])
+                ->middleware('feature:deployments')
+                ->name('deployments.link-release');
+
+            Route::prefix('/organizations/{org}/environment-mappings')
+                ->whereNumber('org')
+                ->middleware('feature:deployments')
+                ->controller(EnvironmentMappingController::class)
+                ->group(function (): void {
+                    Route::get('/', 'index')->name('environment-mappings.index');
+                    Route::post('/', 'store')->name('environment-mappings.store');
                 });
         });
     });

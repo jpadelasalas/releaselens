@@ -3,6 +3,7 @@
 namespace App\Modules\Releases\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Deployments\Contracts\DeploymentRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseApprovalRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseChecklistRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseRepositoryInterface;
@@ -13,7 +14,9 @@ use App\Modules\Releases\Http\Requests\ShowReleaseRequest;
 use App\Modules\Releases\Http\Requests\TransitionReleaseRequest;
 use App\Modules\Releases\Http\Requests\UpdateReleaseRequest;
 use App\Modules\Releases\Services\ReleaseService;
+use App\Modules\Releases\Support\ReleaseReadiness;
 use App\Modules\Shared\Http\Responses\ApiResponse;
+use App\Modules\Shared\Support\FeatureFlags;
 use Illuminate\Http\JsonResponse;
 
 class ReleaseController extends Controller
@@ -25,6 +28,8 @@ class ReleaseController extends Controller
         private readonly ReleaseService $releaseService,
         private readonly ReleaseChecklistRepositoryInterface $checklist,
         private readonly ReleaseApprovalRepositoryInterface $approvals,
+        private readonly DeploymentRepositoryInterface $deployments,
+        private readonly FeatureFlags $featureFlags,
     ) {}
 
     public function index(ListReleasesRequest $request, int $org): JsonResponse
@@ -59,9 +64,13 @@ class ReleaseController extends Controller
             return $this->errorResponse('RESOURCE_NOT_FOUND', 'Release not found.', 404);
         }
 
+        $pullRequests = $this->releases->pullRequestsForRelease($record->id);
+        $repositories = $this->releases->repositoriesForRelease($record->id);
+        $checklistItems = $this->checklist->forRelease($record->id);
+
         return $this->successResponse(data: [
             ...$this->present($record),
-            'pull_requests' => $this->releases->pullRequestsForRelease($record->id)
+            'pull_requests' => $pullRequests
                 ->map(fn (object $pr): array => [
                     'id' => (int) $pr->id,
                     'number' => (int) $pr->number,
@@ -71,13 +80,13 @@ class ReleaseController extends Controller
                     'repository_id' => (int) $pr->repository_id,
                     'repository_name' => $pr->repository_name,
                 ])->all(),
-            'repositories' => $this->releases->repositoriesForRelease($record->id)
+            'repositories' => $repositories
                 ->map(fn (object $repository): array => [
                     'id' => (int) $repository->id,
                     'name' => $repository->name,
                     'full_name' => $repository->full_name,
                 ])->all(),
-            'checklist_items' => $this->checklist->forRelease($record->id)
+            'checklist_items' => $checklistItems
                 ->map(fn (object $item): array => [
                     'id' => (int) $item->id,
                     'label' => $item->label,
@@ -92,6 +101,18 @@ class ReleaseController extends Controller
                     'approver_user_id' => (int) $approval->approver_user_id,
                     'approved_at' => $approval->approved_at,
                 ])->all(),
+            'readiness_warnings' => ReleaseReadiness::warnings($record, $checklistItems, $pullRequests, $repositories),
+            'deployments' => $this->featureFlags->enabled('deployments')
+                ? $this->deployments->forRelease($record->id)
+                    ->map(fn (object $deployment): array => [
+                        'id' => (int) $deployment->id,
+                        'repository_name' => $deployment->repository_name,
+                        'normalized_environment' => $deployment->normalized_environment,
+                        'is_production' => (bool) $deployment->is_production,
+                        'status' => $deployment->status,
+                        'created_at_github' => $deployment->created_at_github,
+                    ])->all()
+                : [],
         ]);
     }
 

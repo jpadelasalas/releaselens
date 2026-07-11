@@ -127,6 +127,45 @@ export const router = createBrowserRouter([
                 path: '/app/metrics',
                 element: <MetricGlossaryRoute />,
               },
+              {
+                path: '/app/releases',
+                lazy: async () => {
+                  const { ReleasesListPage } = await import(
+                    '../pages/releases/ReleasesListPage'
+                  )
+
+                  return {
+                    Component: ReleasesListPage,
+                    HydrateFallback: ConnectedRouteFallback,
+                  }
+                },
+              },
+              {
+                path: '/app/releases/:releaseId',
+                lazy: async () => {
+                  const { ReleaseDetailPage } = await import(
+                    '../pages/releases/ReleaseDetailPage'
+                  )
+
+                  return {
+                    Component: ReleaseDetailPage,
+                    HydrateFallback: ConnectedRouteFallback,
+                  }
+                },
+              },
+              {
+                path: '/app/deployments',
+                lazy: async () => {
+                  const { DeploymentsListPage } = await import(
+                    '../pages/deployments/DeploymentsListPage'
+                  )
+
+                  return {
+                    Component: DeploymentsListPage,
+                    HydrateFallback: ConnectedRouteFallback,
+                  }
+                },
+              },
             ],
           },
         ],
