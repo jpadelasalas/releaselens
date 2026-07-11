@@ -166,6 +166,19 @@ export const router = createBrowserRouter([
                   }
                 },
               },
+              {
+                path: '/app/notifications',
+                lazy: async () => {
+                  const { NotificationsPage } = await import(
+                    '../pages/notifications/NotificationsPage'
+                  )
+
+                  return {
+                    Component: NotificationsPage,
+                    HydrateFallback: ConnectedRouteFallback,
+                  }
+                },
+              },
             ],
           },
         ],
