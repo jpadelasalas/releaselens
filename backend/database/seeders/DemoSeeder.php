@@ -67,6 +67,8 @@ class DemoSeeder extends Seeder
 
             $this->seedWebhookDemoData($organizationId, $repositories);
 
+            $this->seedReleaseDemoData($organizationId, $repositories);
+
             $this->command?->newLine();
             $this->command?->info('ReleaseLens demo data created.');
             $this->command?->line(
@@ -180,6 +182,66 @@ class DemoSeeder extends Seeder
 
         if (Schema::hasTable('webhook_deliveries')) {
             DB::table('webhook_deliveries')
+                ->where('organization_id', $organizationId)
+                ->delete();
+        }
+
+        if (
+            Schema::hasTable('deployments') &&
+            $repositoryIds->isNotEmpty()
+        ) {
+            $deploymentIds = DB::table('deployments')
+                ->whereIn('repository_id', $repositoryIds)
+                ->pluck('id');
+
+            if (
+                Schema::hasTable('deployment_status_events') &&
+                $deploymentIds->isNotEmpty()
+            ) {
+                DB::table('deployment_status_events')
+                    ->whereIn('deployment_id', $deploymentIds)
+                    ->delete();
+            }
+
+            DB::table('deployments')
+                ->whereIn('repository_id', $repositoryIds)
+                ->delete();
+        }
+
+        if (Schema::hasTable('releases')) {
+            $releaseIds = DB::table('releases')
+                ->where('organization_id', $organizationId)
+                ->pluck('id');
+
+            if ($releaseIds->isNotEmpty()) {
+                foreach ([
+                    'release_activities',
+                    'release_approvals',
+                    'release_checklist_items',
+                    'release_pull_requests',
+                    'release_repositories',
+                ] as $childTable) {
+                    if (Schema::hasTable($childTable)) {
+                        DB::table($childTable)
+                            ->whereIn('release_id', $releaseIds)
+                            ->delete();
+                    }
+                }
+            }
+
+            DB::table('releases')
+                ->where('organization_id', $organizationId)
+                ->delete();
+        }
+
+        if (Schema::hasTable('release_policies')) {
+            DB::table('release_policies')
+                ->where('organization_id', $organizationId)
+                ->delete();
+        }
+
+        if (Schema::hasTable('environment_mappings')) {
+            DB::table('environment_mappings')
                 ->where('organization_id', $organizationId)
                 ->delete();
         }
@@ -1079,6 +1141,213 @@ class DemoSeeder extends Seeder
                     'updated_at' => $this->anchor,
                 ]);
         }
+    }
+
+    /**
+     * V2.1 showcase scenarios (V2-FR-REL-018): a successful release, a
+     * release awaiting approval, a failed deployment, and a deployment
+     * that was rolled back after a successful rollout.
+     *
+     * @param  array<int, array<string, mixed>>  $repositories
+     */
+    private function seedReleaseDemoData(int $organizationId, array $repositories): void
+    {
+        if (! Schema::hasTable('releases')) {
+            return;
+        }
+
+        $ownerUserId = DB::table('users')
+            ->where('email', 'demo-owner@releaselens.invalid')
+            ->value('id');
+        $repositoryA = $repositories[0];
+        $repositoryB = $repositories[1];
+
+        $mergedPullRequestIds = function (int $repositoryId, int $limit) {
+            return DB::table('pull_requests')
+                ->where('repository_id', $repositoryId)
+                ->whereNotNull('merged_at')
+                ->orderByDesc('merged_at')
+                ->limit($limit)
+                ->pluck('id');
+        };
+
+        // Scenario 1: a successful, released release.
+        $releasedAt = $this->anchor->subDays(3);
+        $successfulReleaseId = $this->insertGetId('releases', [
+            'organization_id' => $organizationId,
+            'title' => 'v2.4.0 - Billing reliability improvements',
+            'description' => 'Stabilizes invoice reconciliation and adds retry handling for the billing webhook pipeline.',
+            'state' => 'released',
+            'target_release_at' => $releasedAt->subDay(),
+            'released_at' => $releasedAt,
+            'created_by_user_id' => $ownerUserId,
+            'created_at' => $releasedAt->subWeek(),
+            'updated_at' => $releasedAt,
+        ]);
+
+        foreach ($mergedPullRequestIds($repositoryA['id'], 3) as $pullRequestId) {
+            $this->insertGetId('release_pull_requests', [
+                'release_id' => $successfulReleaseId,
+                'pull_request_id' => $pullRequestId,
+                'added_by_user_id' => $ownerUserId,
+                'created_at' => $releasedAt->subWeek(),
+                'updated_at' => $releasedAt->subWeek(),
+            ]);
+        }
+        $this->insertGetId('release_repositories', [
+            'release_id' => $successfulReleaseId,
+            'repository_id' => $repositoryA['id'],
+            'created_at' => $releasedAt->subWeek(),
+            'updated_at' => $releasedAt->subWeek(),
+        ]);
+        $this->insertGetId('release_checklist_items', [
+            'release_id' => $successfulReleaseId,
+            'label' => 'Run smoke tests against staging',
+            'is_required' => true,
+            'position' => 0,
+            'completed_at' => $releasedAt->subDay(),
+            'completed_by_user_id' => $ownerUserId,
+            'created_at' => $releasedAt->subWeek(),
+            'updated_at' => $releasedAt->subDay(),
+        ]);
+        $this->insertGetId('release_approvals', [
+            'release_id' => $successfulReleaseId,
+            'approver_user_id' => $ownerUserId,
+            'approval_generation' => 0,
+            'approved_at' => $releasedAt->subDay(),
+            'created_at' => $releasedAt->subDay(),
+            'updated_at' => $releasedAt->subDay(),
+        ]);
+        $this->insertGetId('release_activities', [
+            'release_id' => $successfulReleaseId,
+            'actor_user_id' => $ownerUserId,
+            'action' => 'state_changed',
+            'metadata' => json_encode(['from' => 'approved', 'to' => 'released'], JSON_THROW_ON_ERROR),
+            'occurred_at' => $releasedAt,
+            'created_at' => $releasedAt,
+            'updated_at' => $releasedAt,
+        ]);
+
+        // Scenario 2: a release awaiting approval.
+        $inReviewAt = $this->anchor->subHours(6);
+        $awaitingApprovalReleaseId = $this->insertGetId('releases', [
+            'organization_id' => $organizationId,
+            'title' => 'v2.5.0 - Mobile navigation refresh',
+            'description' => 'Redesigns the mobile shell navigation and fixes deep-link handling.',
+            'state' => 'in_review',
+            'target_release_at' => $this->anchor->addDays(2),
+            'created_by_user_id' => $ownerUserId,
+            'created_at' => $inReviewAt->subDays(2),
+            'updated_at' => $inReviewAt,
+        ]);
+
+        foreach ($mergedPullRequestIds($repositoryB['id'], 2) as $pullRequestId) {
+            $this->insertGetId('release_pull_requests', [
+                'release_id' => $awaitingApprovalReleaseId,
+                'pull_request_id' => $pullRequestId,
+                'added_by_user_id' => $ownerUserId,
+                'created_at' => $inReviewAt->subDays(2),
+                'updated_at' => $inReviewAt->subDays(2),
+            ]);
+        }
+        $this->insertGetId('release_repositories', [
+            'release_id' => $awaitingApprovalReleaseId,
+            'repository_id' => $repositoryB['id'],
+            'created_at' => $inReviewAt->subDays(2),
+            'updated_at' => $inReviewAt->subDays(2),
+        ]);
+        $this->insertGetId('release_checklist_items', [
+            'release_id' => $awaitingApprovalReleaseId,
+            'label' => 'Confirm rollback plan documented',
+            'is_required' => true,
+            'position' => 0,
+            'completed_at' => $inReviewAt,
+            'completed_by_user_id' => $ownerUserId,
+            'created_at' => $inReviewAt->subDays(2),
+            'updated_at' => $inReviewAt,
+        ]);
+        $this->insertGetId('release_activities', [
+            'release_id' => $awaitingApprovalReleaseId,
+            'actor_user_id' => $ownerUserId,
+            'action' => 'state_changed',
+            'metadata' => json_encode(['from' => 'draft', 'to' => 'in_review'], JSON_THROW_ON_ERROR),
+            'occurred_at' => $inReviewAt,
+            'created_at' => $inReviewAt,
+            'updated_at' => $inReviewAt,
+        ]);
+
+        if (! Schema::hasTable('deployments')) {
+            return;
+        }
+
+        // Scenario 3: a failed deployment, unlinked, awaiting investigation.
+        $failedAt = $this->anchor->subHours(4);
+        $failedDeploymentId = $this->insertGetId('deployments', [
+            'organization_id' => $organizationId,
+            'repository_id' => $repositoryA['id'],
+            'release_id' => null,
+            'github_deployment_id' => 9_300_000_001,
+            'ref' => 'main',
+            'sha' => 'demo0001failed',
+            'original_environment' => 'production',
+            'normalized_environment' => 'production',
+            'is_production' => true,
+            'status' => 'failure',
+            'original_status' => 'failure',
+            'description' => 'Deploy '.$repositoryA['name'].' to production',
+            'created_at_github' => $failedAt,
+            'updated_at_github' => $failedAt,
+            'created_at' => $failedAt,
+            'updated_at' => $failedAt,
+        ]);
+        $this->insertGetId('deployment_status_events', [
+            'deployment_id' => $failedDeploymentId,
+            'status' => 'failure',
+            'original_status' => 'failure',
+            'description' => 'Health check failed after deploy.',
+            'occurred_at' => $failedAt,
+            'created_at' => $failedAt,
+            'updated_at' => $failedAt,
+        ]);
+
+        // Scenario 4: a deployment that succeeded and was later rolled back.
+        $rolledBackDeployedAt = $this->anchor->subDays(3)->addHour();
+        $rolledBackDeploymentId = $this->insertGetId('deployments', [
+            'organization_id' => $organizationId,
+            'repository_id' => $repositoryA['id'],
+            'release_id' => $successfulReleaseId,
+            'github_deployment_id' => 9_300_000_002,
+            'ref' => 'main',
+            'sha' => 'demo0002rollback',
+            'original_environment' => 'production',
+            'normalized_environment' => 'production',
+            'is_production' => true,
+            'status' => 'inactive',
+            'original_status' => 'inactive',
+            'description' => 'Deploy '.$repositoryA['name'].' to production',
+            'created_at_github' => $rolledBackDeployedAt,
+            'updated_at_github' => $rolledBackDeployedAt->addHours(2),
+            'created_at' => $rolledBackDeployedAt,
+            'updated_at' => $rolledBackDeployedAt->addHours(2),
+        ]);
+        $this->insertGetId('deployment_status_events', [
+            'deployment_id' => $rolledBackDeploymentId,
+            'status' => 'success',
+            'original_status' => 'success',
+            'description' => 'Deploy finished.',
+            'occurred_at' => $rolledBackDeployedAt,
+            'created_at' => $rolledBackDeployedAt,
+            'updated_at' => $rolledBackDeployedAt,
+        ]);
+        $this->insertGetId('deployment_status_events', [
+            'deployment_id' => $rolledBackDeploymentId,
+            'status' => 'inactive',
+            'original_status' => 'inactive',
+            'description' => 'Rolled back after elevated error rate.',
+            'occurred_at' => $rolledBackDeployedAt->addHours(2),
+            'created_at' => $rolledBackDeployedAt->addHours(2),
+            'updated_at' => $rolledBackDeployedAt->addHours(2),
+        ]);
     }
 
     private function pullRequestTitle(

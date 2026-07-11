@@ -128,6 +128,67 @@ class DemoSeederAcceptanceTest extends TestCase
         );
     }
 
+    public function test_demo_seed_includes_v2_1_release_and_deployment_scenarios(): void
+    {
+        $this->seed(DemoSeeder::class);
+
+        $released = DB::table('releases')->where('state', 'released')->first();
+        $this->assertNotNull($released);
+        $this->assertNotNull($released->released_at);
+        $this->assertGreaterThan(
+            0,
+            DB::table('release_pull_requests')->where('release_id', $released->id)->count(),
+        );
+        $this->assertSame(
+            1,
+            DB::table('release_approvals')->where('release_id', $released->id)->count(),
+        );
+
+        $inReview = DB::table('releases')->where('state', 'in_review')->first();
+        $this->assertNotNull($inReview);
+        $this->assertSame(
+            0,
+            DB::table('release_approvals')->where('release_id', $inReview->id)->count(),
+        );
+
+        $failedDeployment = DB::table('deployments')
+            ->where('github_deployment_id', 9_300_000_001)
+            ->first();
+        $this->assertNotNull($failedDeployment);
+        $this->assertSame('failure', $failedDeployment->status);
+        $this->assertNull($failedDeployment->release_id);
+
+        $rolledBackDeployment = DB::table('deployments')
+            ->where('github_deployment_id', 9_300_000_002)
+            ->first();
+        $this->assertNotNull($rolledBackDeployment);
+        $this->assertSame('inactive', $rolledBackDeployment->status);
+        $this->assertSame(
+            ['success', 'inactive'],
+            DB::table('deployment_status_events')
+                ->where('deployment_id', $rolledBackDeployment->id)
+                ->orderBy('occurred_at')
+                ->pluck('status')
+                ->all(),
+        );
+    }
+
+    public function test_reseeding_the_demo_does_not_duplicate_releases_or_deployments(): void
+    {
+        $this->seed(DemoSeeder::class);
+        $this->seed(DemoSeeder::class);
+
+        $this->assertSame(2, DB::table('releases')->count());
+        $this->assertSame(
+            1,
+            DB::table('deployments')->where('github_deployment_id', 9_300_000_001)->count(),
+        );
+        $this->assertSame(
+            1,
+            DB::table('deployments')->where('github_deployment_id', 9_300_000_002)->count(),
+        );
+    }
+
     private function datasetFingerprint(): string
     {
         $repositories = DB::table('repositories')
