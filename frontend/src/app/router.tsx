@@ -153,6 +153,19 @@ export const router = createBrowserRouter([
                   }
                 },
               },
+              {
+                path: '/app/deployments',
+                lazy: async () => {
+                  const { DeploymentsListPage } = await import(
+                    '../pages/deployments/DeploymentsListPage'
+                  )
+
+                  return {
+                    Component: DeploymentsListPage,
+                    HydrateFallback: ConnectedRouteFallback,
+                  }
+                },
+              },
             ],
           },
         ],

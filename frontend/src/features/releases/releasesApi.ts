@@ -64,12 +64,22 @@ const releaseReadinessWarningSchema = z.object({
   message: z.string(),
 })
 
+const releaseDeploymentSchema = z.object({
+  id: z.number().int().positive(),
+  repository_name: z.string(),
+  normalized_environment: z.string(),
+  is_production: z.boolean(),
+  status: z.string(),
+  created_at_github: z.string(),
+})
+
 export const releaseDetailSchema = releaseSchema.extend({
   pull_requests: z.array(releasePullRequestSchema),
   repositories: z.array(releaseRepositorySchema),
   checklist_items: z.array(releaseChecklistItemSchema),
   approvals: z.array(releaseApprovalSchema),
   readiness_warnings: z.array(releaseReadinessWarningSchema),
+  deployments: z.array(releaseDeploymentSchema),
 })
 
 export type Release = z.infer<typeof releaseSchema>

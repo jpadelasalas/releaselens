@@ -3,6 +3,7 @@
 namespace App\Modules\Releases\Http\Controllers;
 
 use App\Http\Controllers\Controller;
+use App\Modules\Deployments\Contracts\DeploymentRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseApprovalRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseChecklistRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseRepositoryInterface;
@@ -15,6 +16,7 @@ use App\Modules\Releases\Http\Requests\UpdateReleaseRequest;
 use App\Modules\Releases\Services\ReleaseService;
 use App\Modules\Releases\Support\ReleaseReadiness;
 use App\Modules\Shared\Http\Responses\ApiResponse;
+use App\Modules\Shared\Support\FeatureFlags;
 use Illuminate\Http\JsonResponse;
 
 class ReleaseController extends Controller
@@ -26,6 +28,8 @@ class ReleaseController extends Controller
         private readonly ReleaseService $releaseService,
         private readonly ReleaseChecklistRepositoryInterface $checklist,
         private readonly ReleaseApprovalRepositoryInterface $approvals,
+        private readonly DeploymentRepositoryInterface $deployments,
+        private readonly FeatureFlags $featureFlags,
     ) {}
 
     public function index(ListReleasesRequest $request, int $org): JsonResponse
@@ -98,6 +102,17 @@ class ReleaseController extends Controller
                     'approved_at' => $approval->approved_at,
                 ])->all(),
             'readiness_warnings' => ReleaseReadiness::warnings($record, $checklistItems, $pullRequests, $repositories),
+            'deployments' => $this->featureFlags->enabled('deployments')
+                ? $this->deployments->forRelease($record->id)
+                    ->map(fn (object $deployment): array => [
+                        'id' => (int) $deployment->id,
+                        'repository_name' => $deployment->repository_name,
+                        'normalized_environment' => $deployment->normalized_environment,
+                        'is_production' => (bool) $deployment->is_production,
+                        'status' => $deployment->status,
+                        'created_at_github' => $deployment->created_at_github,
+                    ])->all()
+                : [],
         ]);
     }
 

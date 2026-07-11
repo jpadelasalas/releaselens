@@ -230,6 +230,28 @@ export function ReleaseDetailPage() {
           )}
         </div>
       </section>
+
+      {release.deployments.length > 0 && (
+        <section className="mt-6">
+          <h2 className="text-base text-[var(--color-heading)]">Deployments</h2>
+          <div className="mt-2 divide-y divide-[var(--color-border)] rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)]">
+            {release.deployments.map((deployment) => (
+              <div key={deployment.id} className="flex items-center justify-between gap-3 px-4 py-2 text-sm">
+                <span className="text-[var(--color-heading)]">
+                  {deployment.repository_name}
+                  <span className="ml-2 text-xs capitalize text-[var(--color-muted)]">
+                    {deployment.normalized_environment}
+                    {deployment.is_production ? ' - production' : ''}
+                  </span>
+                </span>
+                <span className="text-xs font-bold capitalize text-[var(--color-muted)]">
+                  {deployment.status.replaceAll('_', ' ')}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
     </main>
   )
 }
