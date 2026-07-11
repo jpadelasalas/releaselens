@@ -110,6 +110,22 @@ class IncidentService
         return $item;
     }
 
+    public function uncompleteActionItem(object $incident, int $actorUserId, int $itemId): object
+    {
+        $item = $this->actionItems->uncomplete($itemId);
+
+        $this->timeline->record($incident->id, $actorUserId, 'action_item_reopened', 'An action item was reopened.');
+
+        return $item;
+    }
+
+    public function removeActionItem(object $incident, int $actorUserId, int $itemId): void
+    {
+        $this->actionItems->remove($incident->id, $itemId);
+
+        $this->timeline->record($incident->id, $actorUserId, 'action_item_removed', 'An action item was removed.');
+    }
+
     public function linkEntity(object $incident, int $actorUserId, string $linkableType, int $linkableId): object
     {
         $link = $this->links->link($incident->id, $linkableType, $linkableId);
@@ -117,6 +133,13 @@ class IncidentService
         $this->timeline->record($incident->id, $actorUserId, 'linked', "Linked to {$linkableType} #{$linkableId}.");
 
         return $link;
+    }
+
+    public function unlinkEntity(object $incident, int $actorUserId, int $linkId): void
+    {
+        $this->links->remove($incident->id, $linkId);
+
+        $this->timeline->record($incident->id, $actorUserId, 'unlinked', 'A linked entity was removed.');
     }
 
     /**

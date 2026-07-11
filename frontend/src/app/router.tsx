@@ -179,6 +179,32 @@ export const router = createBrowserRouter([
                   }
                 },
               },
+              {
+                path: '/app/incidents',
+                lazy: async () => {
+                  const { IncidentsListPage } = await import(
+                    '../pages/incidents/IncidentsListPage'
+                  )
+
+                  return {
+                    Component: IncidentsListPage,
+                    HydrateFallback: ConnectedRouteFallback,
+                  }
+                },
+              },
+              {
+                path: '/app/incidents/:incidentId',
+                lazy: async () => {
+                  const { IncidentDetailPage } = await import(
+                    '../pages/incidents/IncidentDetailPage'
+                  )
+
+                  return {
+                    Component: IncidentDetailPage,
+                    HydrateFallback: ConnectedRouteFallback,
+                  }
+                },
+              },
             ],
           },
         ],
