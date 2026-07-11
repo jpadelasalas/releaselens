@@ -2,6 +2,9 @@
 
 namespace App\Modules\Releases\Services;
 
+use App\Modules\Notifications\Enums\NotificationType;
+use App\Modules\Notifications\Services\NotificationService;
+use App\Modules\Organizations\Contracts\OrganizationWorkspaceRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseActivityRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseApprovalRepositoryInterface;
 use App\Modules\Releases\Contracts\ReleaseChecklistRepositoryInterface;
@@ -25,6 +28,8 @@ class ReleaseService
         private readonly ReleaseApprovalRepositoryInterface $approvals,
         private readonly ReleasePolicyRepositoryInterface $policies,
         private readonly ReleaseChecklistRepositoryInterface $checklist,
+        private readonly OrganizationWorkspaceRepositoryInterface $organizations,
+        private readonly NotificationService $notifications,
     ) {}
 
     /**
@@ -104,7 +109,44 @@ class ReleaseService
             'to' => $to->value,
         ]);
 
+        $this->notifyOnTransition($release, $to);
+
         return $this->releases->find($release->id);
+    }
+
+    private function notifyOnTransition(object $release, ReleaseState $to): void
+    {
+        $type = match ($to) {
+            ReleaseState::InReview => NotificationType::ReleaseApprovalRequired,
+            ReleaseState::Released => NotificationType::ReleaseReleased,
+            default => null,
+        };
+
+        if ($type === null) {
+            return;
+        }
+
+        $recipientRoles = $type === NotificationType::ReleaseApprovalRequired
+            ? ['owner', 'manager']
+            : ['owner', 'manager', 'viewer'];
+
+        $userIds = $this->organizations
+            ->membersForOrganization((int) $release->organization_id)
+            ->filter(fn (object $member): bool => in_array($member->role, $recipientRoles, true))
+            ->pluck('user_id')
+            ->map(fn (mixed $id): int => (int) $id)
+            ->all();
+
+        $this->notifications->notifyUsers(
+            organizationId: (int) $release->organization_id,
+            userIds: $userIds,
+            type: $type->value,
+            title: $type === NotificationType::ReleaseApprovalRequired
+                ? "\"{$release->title}\" is awaiting approval"
+                : "\"{$release->title}\" was released",
+            subjectType: 'release',
+            subjectId: (int) $release->id,
+        );
     }
 
     public function approve(object $release, int $approverUserId): object
