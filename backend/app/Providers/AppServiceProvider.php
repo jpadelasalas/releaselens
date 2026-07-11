@@ -2,6 +2,10 @@
 
 namespace App\Providers;
 
+use App\Modules\Ai\Contracts\AiGenerationRepositoryInterface;
+use App\Modules\Ai\Contracts\AiReleaseNotesProviderInterface;
+use App\Modules\Ai\Repositories\AiGenerationRepository;
+use App\Modules\Ai\Services\StubAiReleaseNotesProvider;
 use App\Modules\Analytics\Contracts\OrganizationAnalyticsRepositoryInterface;
 use App\Modules\Analytics\Repositories\OrganizationAnalyticsRepository;
 use App\Modules\Deployments\Contracts\DeploymentRepositoryInterface;
@@ -198,6 +202,16 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(
             PostmortemRepositoryInterface::class,
             PostmortemRepository::class,
+        );
+
+        $this->app->bind(
+            AiGenerationRepositoryInterface::class,
+            AiGenerationRepository::class,
+        );
+
+        $this->app->bind(
+            AiReleaseNotesProviderInterface::class,
+            StubAiReleaseNotesProvider::class,
         );
 
         $this->app->singleton(WebhookEventHandlerRegistry::class);
