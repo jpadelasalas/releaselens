@@ -21,6 +21,7 @@ use App\Modules\Organizations\Http\Controllers\ListOrganizationsController;
 use App\Modules\Organizations\Http\Controllers\RemoveOrganizationMemberController;
 use App\Modules\Organizations\Http\Controllers\UpdateOrganizationMemberController;
 use App\Modules\PullRequests\Http\Controllers\PullRequestExplorerController;
+use App\Modules\Releases\Http\Controllers\ExportReleaseMarkdownController;
 use App\Modules\Releases\Http\Controllers\ReleaseApprovalController;
 use App\Modules\Releases\Http\Controllers\ReleaseChecklistItemController;
 use App\Modules\Releases\Http\Controllers\ReleaseController;
@@ -183,6 +184,14 @@ Route::prefix('v1')
                         ->whereNumber('release')
                         ->name('releases.transition');
                 });
+
+            Route::get(
+                '/organizations/{org}/releases/{release}/export.md',
+                ExportReleaseMarkdownController::class,
+            )
+                ->whereNumber(['org', 'release'])
+                ->middleware('feature:releases')
+                ->name('releases.export-markdown');
 
             Route::prefix('/organizations/{org}/releases/{release}/pull-requests')
                 ->whereNumber(['org', 'release'])

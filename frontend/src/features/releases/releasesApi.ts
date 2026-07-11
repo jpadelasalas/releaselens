@@ -59,11 +59,17 @@ const releaseApprovalSchema = z.object({
   approved_at: z.string(),
 })
 
+const releaseReadinessWarningSchema = z.object({
+  code: z.string(),
+  message: z.string(),
+})
+
 export const releaseDetailSchema = releaseSchema.extend({
   pull_requests: z.array(releasePullRequestSchema),
   repositories: z.array(releaseRepositorySchema),
   checklist_items: z.array(releaseChecklistItemSchema),
   approvals: z.array(releaseApprovalSchema),
+  readiness_warnings: z.array(releaseReadinessWarningSchema),
 })
 
 export type Release = z.infer<typeof releaseSchema>
@@ -228,6 +234,18 @@ export async function getReleasePolicy(
   )
 
   return policyResponseSchema.parse(response.data).data
+}
+
+export async function exportReleaseMarkdown(
+  organizationId: number,
+  releaseId: number,
+): Promise<Blob> {
+  const response = await api.get(
+    `/api/v1/organizations/${organizationId}/releases/${releaseId}/export.md`,
+    { responseType: 'blob' },
+  )
+
+  return response.data as Blob
 }
 
 export function getReleaseError(error: unknown): string {

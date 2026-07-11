@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom'
 
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import {
+  exportReleaseMarkdown,
   getReleaseError,
   type ReleaseState,
 } from '../../features/releases/releasesApi'
@@ -38,18 +39,45 @@ export function ReleaseDetailPage() {
     return <main className="p-6">Loading release...</main>
   }
 
+  async function handleExport(organizationId: number, releaseId: number, title: string) {
+    const blob = await exportReleaseMarkdown(organizationId, releaseId)
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${title.replaceAll(/\s+/g, '-').toLowerCase()}.md`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   const release = releaseQuery.data
 
   return (
     <main className="p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl text-[var(--color-heading)]">{release.title}</h1>
-        <span className="rounded-md border border-[var(--color-border-strong)] px-3 py-1 text-xs font-bold capitalize text-[var(--color-heading)]">
-          {release.state.replaceAll('_', ' ')}
-        </span>
+        <div className="flex items-center gap-2">
+          <span className="rounded-md border border-[var(--color-border-strong)] px-3 py-1 text-xs font-bold capitalize text-[var(--color-heading)]">
+            {release.state.replaceAll('_', ' ')}
+          </span>
+          <button
+            type="button"
+            className="min-h-9 rounded-md border border-[var(--color-border-strong)] px-3 text-xs font-bold text-[var(--color-heading)]"
+            onClick={() => void handleExport(release.organization_id, release.id, release.title)}
+          >
+            Export .md
+          </button>
+        </div>
       </div>
       {release.description && (
         <p className="mt-2 text-sm text-[var(--color-muted)]">{release.description}</p>
+      )}
+
+      {release.readiness_warnings.length > 0 && (
+        <ul className="mt-3 rounded-md border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-3 text-sm">
+          {release.readiness_warnings.map((warning) => (
+            <li key={warning.code}>{warning.message}</li>
+          ))}
+        </ul>
       )}
 
       {error && (

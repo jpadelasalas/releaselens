@@ -57,9 +57,11 @@ describe('release schemas', () => {
         },
       ],
       approvals: [],
+      readiness_warnings: [{ code: 'no_pull_requests', message: 'No pull requests are included in this release.' }],
     })
 
     expect(release.pull_requests).toHaveLength(1)
     expect(release.checklist_items[0]?.is_required).toBe(true)
+    expect(release.readiness_warnings[0]?.code).toBe('no_pull_requests')
   })
 })

@@ -121,7 +121,7 @@ class ReleaseRepository implements ReleaseRepositoryInterface
         return DB::table('release_repositories')
             ->join('repositories', 'repositories.id', '=', 'release_repositories.repository_id')
             ->where('release_repositories.release_id', $releaseId)
-            ->get(['repositories.id', 'repositories.name', 'repositories.full_name']);
+            ->get(['repositories.id', 'repositories.name', 'repositories.full_name', 'repositories.is_accessible']);
     }
 
     public function findMergedPullRequestForOrganization(int $organizationId, int $pullRequestId): ?object
