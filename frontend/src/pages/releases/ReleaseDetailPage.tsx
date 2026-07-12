@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 
 import { useScopeContext } from '../../app/scope/useScopeContext'
+import { getAiGenerationError } from '../../features/ai/aiApi'
+import { useAiGenerations, useGenerateReleaseNotes } from '../../features/ai/useAi'
 import {
   exportReleaseMarkdown,
   getReleaseError,
@@ -26,8 +28,11 @@ export function ReleaseDetailPage() {
   const canManage = scope.kind === 'connected' && (scope.role === 'owner' || scope.role === 'manager')
   const releaseQuery = useRelease(organizationId, id)
   const mutations = useReleaseMutations(organizationId, id ?? undefined)
+  const aiGenerationsQuery = useAiGenerations(organizationId, id)
+  const generateReleaseNotes = useGenerateReleaseNotes(organizationId, id)
   const [pullRequestId, setPullRequestId] = useState('')
   const [checklistLabel, setChecklistLabel] = useState('')
+  const [draft, setDraft] = useState('')
 
   const error =
     mutations.transition.error ??
@@ -227,6 +232,68 @@ export function ReleaseDetailPage() {
                 Approved {new Date(approval.approved_at).toLocaleString()}
               </div>
             ))
+          )}
+        </div>
+      </section>
+
+      <section className="mt-6">
+        <h2 className="text-base text-[var(--color-heading)]">AI release notes</h2>
+        <div className="mt-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-surface)] p-4">
+          <p className="text-xs font-bold uppercase text-[var(--color-muted)]">Source preview</p>
+          <p className="mt-1 text-sm text-[var(--color-heading)]">{release.title}</p>
+          {release.description && <p className="mt-1 text-sm text-[var(--color-muted)]">{release.description}</p>}
+          {release.pull_requests.length > 0 && (
+            <ul className="mt-2 list-inside list-disc text-sm text-[var(--color-muted)]">
+              {release.pull_requests.map((pr) => (
+                <li key={pr.id}>{pr.title}</li>
+              ))}
+            </ul>
+          )}
+
+          {canManage && (
+            <button
+              type="button"
+              className="mt-3 min-h-9 rounded-md bg-[var(--color-primary)] px-3 text-xs font-bold text-[var(--color-on-primary)]"
+              disabled={generateReleaseNotes.isPending}
+              onClick={async () => {
+                const generation = await generateReleaseNotes.mutateAsync()
+                setDraft(generation.output ?? '')
+              }}
+            >
+              {generateReleaseNotes.isPending ? 'Generating...' : 'Generate draft'}
+            </button>
+          )}
+          {generateReleaseNotes.error && (
+            <div className="mt-2 rounded-md border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-3 text-sm" role="alert">
+              {getAiGenerationError(generateReleaseNotes.error)}
+            </div>
+          )}
+
+          {draft !== '' && (
+            <textarea
+              className="mt-3 min-h-32 w-full rounded-md border border-[var(--color-border-strong)] bg-[var(--color-surface-solid)] p-3 text-sm text-[var(--color-text)]"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+            />
+          )}
+
+          {(aiGenerationsQuery.data ?? []).length > 0 && (
+            <div className="mt-3">
+              <p className="text-xs font-bold uppercase text-[var(--color-muted)]">History</p>
+              <div className="mt-1 divide-y divide-[var(--color-border)] rounded-md border border-[var(--color-border)]">
+                {(aiGenerationsQuery.data ?? []).map((generation) => (
+                  <button
+                    key={generation.id}
+                    type="button"
+                    className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm text-[var(--color-heading)] hover:bg-[var(--color-page-alt)]"
+                    onClick={() => setDraft(generation.output ?? '')}
+                  >
+                    <span>{new Date(generation.created_at).toLocaleString()}</span>
+                    <span className="text-xs font-bold uppercase text-[var(--color-muted)]">{generation.status}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
       </section>

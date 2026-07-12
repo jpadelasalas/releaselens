@@ -29,6 +29,10 @@ return [
         'ai' => (bool) env('FEATURE_AI', false),
     ],
 
+    'ai' => [
+        'monthly_generation_limit' => (int) env('AI_MONTHLY_GENERATION_LIMIT', 20),
+    ],
+
     'demo' => [
         'organization_slug' => env(
             'DEMO_ORGANIZATION_SLUG',
