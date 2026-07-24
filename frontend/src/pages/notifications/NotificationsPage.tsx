@@ -5,6 +5,7 @@ import {
   useNotificationPreferences,
   useNotifications,
 } from '../../features/notifications/useNotifications'
+import { DashboardNav } from '../dashboard/components/DashboardNav'
 
 export function NotificationsPage() {
   const { scope } = useScopeContext()
@@ -16,7 +17,10 @@ export function NotificationsPage() {
   const error = markRead.error ?? markAllRead.error ?? updatePreference.error
 
   return (
-    <main className="p-6">
+    <main className="dashboard-shell">
+      <DashboardNav activeItem="Notifications" />
+
+      <section className="dashboard-main min-w-0 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl text-[var(--color-heading)]">Notifications</h1>
         <button
@@ -85,6 +89,7 @@ export function NotificationsPage() {
             </label>
           ))}
         </div>
+      </section>
       </section>
     </main>
   )

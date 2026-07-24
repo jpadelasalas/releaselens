@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { useAppSelector } from '../../app/store/hooks'
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import { BrandLink } from '../../components/navigation/BrandLink'
 import { ThemeToggle } from '../../components/theme/ThemeToggle'
@@ -11,6 +12,11 @@ export function LandingPage() {
   const navigate = useNavigate()
   const { activateDemoSession } = useScopeContext()
   const [demoState, setDemoState] = useState<DemoLaunchState>('idle')
+  const authStatus = useAppSelector((state) => state.auth.status)
+
+  if (authStatus === 'authenticated') {
+    return <Navigate to="/app/dashboard" replace />
+  }
 
   async function launchDemo() {
     setDemoState('loading')

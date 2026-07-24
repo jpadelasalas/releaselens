@@ -7,6 +7,7 @@ import {
   type IncidentState,
 } from '../../features/incidents/incidentsApi'
 import { useIncident, useIncidentMutations } from '../../features/incidents/useIncidents'
+import { DashboardNav } from '../dashboard/components/DashboardNav'
 
 const allowedTransitions: Record<IncidentState, IncidentState[]> = {
   investigating: ['identified'],
@@ -32,13 +33,21 @@ export function IncidentDetailPage() {
   const error = mutations.transition.error ?? mutations.addItem.error ?? mutations.saveDraft.error ?? mutations.publish.error
 
   if (incidentQuery.isLoading || !incidentQuery.data) {
-    return <main className="p-6">Loading incident...</main>
+    return (
+      <main className="dashboard-shell">
+        <DashboardNav activeItem="Incidents" />
+        <section className="dashboard-main min-w-0 p-6">Loading incident...</section>
+      </main>
+    )
   }
 
   const incident = incidentQuery.data
 
   return (
-    <main className="p-6">
+    <main className="dashboard-shell">
+      <DashboardNav activeItem="Incidents" />
+
+      <section className="dashboard-main min-w-0 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl text-[var(--color-heading)]">{incident.title}</h1>
         <span className="rounded-md border border-[var(--color-border-strong)] px-3 py-1 text-xs font-bold uppercase text-[var(--color-heading)]">
@@ -183,6 +192,7 @@ export function IncidentDetailPage() {
             </div>
           ))}
         </div>
+      </section>
       </section>
     </main>
   )

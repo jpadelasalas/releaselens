@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import { getReleaseError } from '../../features/releases/releasesApi'
 import { useReleaseMutations, useReleases } from '../../features/releases/useReleases'
+import { DashboardNav } from '../dashboard/components/DashboardNav'
 
 const stateFilters = ['all', 'draft', 'in_review', 'approved', 'released', 'closed', 'cancelled'] as const
 
@@ -28,7 +29,10 @@ export function ReleasesListPage() {
   }
 
   return (
-    <main className="p-6">
+    <main className="dashboard-shell">
+      <DashboardNav activeItem="Releases" />
+
+      <section className="dashboard-main min-w-0 p-6">
       <h1 className="text-xl text-[var(--color-heading)]">Releases</h1>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -93,6 +97,7 @@ export function ReleasesListPage() {
           ))
         )}
       </div>
+      </section>
     </main>
   )
 }

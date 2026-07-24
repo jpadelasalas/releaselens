@@ -10,6 +10,7 @@ import {
   type ReleaseState,
 } from '../../features/releases/releasesApi'
 import { useRelease, useReleaseMutations } from '../../features/releases/useReleases'
+import { DashboardNav } from '../dashboard/components/DashboardNav'
 
 const allowedTransitions: Record<ReleaseState, ReleaseState[]> = {
   draft: ['in_review', 'cancelled'],
@@ -41,7 +42,12 @@ export function ReleaseDetailPage() {
     mutations.approve.error
 
   if (releaseQuery.isLoading || !releaseQuery.data) {
-    return <main className="p-6">Loading release...</main>
+    return (
+      <main className="dashboard-shell">
+        <DashboardNav activeItem="Releases" />
+        <section className="dashboard-main min-w-0 p-6">Loading release...</section>
+      </main>
+    )
   }
 
   async function handleExport(organizationId: number, releaseId: number, title: string) {
@@ -57,7 +63,10 @@ export function ReleaseDetailPage() {
   const release = releaseQuery.data
 
   return (
-    <main className="p-6">
+    <main className="dashboard-shell">
+      <DashboardNav activeItem="Releases" />
+
+      <section className="dashboard-main min-w-0 p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl text-[var(--color-heading)]">{release.title}</h1>
         <div className="flex items-center gap-2">
@@ -319,6 +328,7 @@ export function ReleaseDetailPage() {
           </div>
         </section>
       )}
+      </section>
     </main>
   )
 }

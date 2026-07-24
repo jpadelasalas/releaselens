@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom'
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import { getIncidentError } from '../../features/incidents/incidentsApi'
 import { useIncidentMutations, useIncidents } from '../../features/incidents/useIncidents'
+import { DashboardNav } from '../dashboard/components/DashboardNav'
 
 const stateFilters = ['all', 'investigating', 'identified', 'monitoring', 'resolved', 'closed'] as const
 
@@ -28,7 +29,10 @@ export function IncidentsListPage() {
   }
 
   return (
-    <main className="p-6">
+    <main className="dashboard-shell">
+      <DashboardNav activeItem="Incidents" />
+
+      <section className="dashboard-main min-w-0 p-6">
       <h1 className="text-xl text-[var(--color-heading)]">Incidents</h1>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -96,6 +100,7 @@ export function IncidentsListPage() {
           ))
         )}
       </div>
+      </section>
     </main>
   )
 }

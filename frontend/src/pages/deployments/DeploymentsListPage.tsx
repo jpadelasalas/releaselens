@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 import { useScopeContext } from '../../app/scope/useScopeContext'
 import { useDeployments } from '../../features/deployments/useDeployments'
+import { DashboardNav } from '../dashboard/components/DashboardNav'
 
 const statusFilters = ['all', 'pending', 'queued', 'in_progress', 'success', 'failure', 'error', 'inactive'] as const
 
@@ -15,7 +16,10 @@ export function DeploymentsListPage() {
   )
 
   return (
-    <main className="p-6">
+    <main className="dashboard-shell">
+      <DashboardNav activeItem="Deployments" />
+
+      <section className="dashboard-main min-w-0 p-6">
       <h1 className="text-xl text-[var(--color-heading)]">Deployments</h1>
 
       <div className="mt-4 flex flex-wrap gap-2">
@@ -59,6 +63,7 @@ export function DeploymentsListPage() {
           ))
         )}
       </div>
+      </section>
     </main>
   )
 }
