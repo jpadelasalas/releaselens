@@ -32,5 +32,11 @@
         <env name="PULSE_ENABLED" value="false"/>
         <env name="TELESCOPE_ENABLED" value="false"/>
         <env name="NIGHTWATCH_ENABLED" value="false"/>
+        <env name="FEATURE_WEBHOOKS" value="false"/>
+        <env name="FEATURE_RELEASES" value="false"/>
+        <env name="FEATURE_DEPLOYMENTS" value="false"/>
+        <env name="FEATURE_NOTIFICATIONS" value="false"/>
+        <env name="FEATURE_INCIDENTS" value="false"/>
+        <env name="FEATURE_AI" value="false"/>
     </php>
 </phpunit>
